@@ -13,3 +13,7 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 - **ASSEMBLY FLAVOUR:** Intel
 
 - **LINKER DRIVER:** gcc
+
+## Other:
+
+dropout impl also, probably not more performant that -O3. proj meant for mogging

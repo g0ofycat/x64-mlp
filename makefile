@@ -7,13 +7,20 @@ LDFLAGS = -m64
 TARGET = $(BINDIR)/mlp_x64.exe
 
 SRCDIR = src
+SRC_LIBS = $(SRCDIR)/libs
+SRC_MLP = $(SRCDIR)/mlp
 TESTDIR = testing
 BINDIR = bin
 OBJDIR = obj
 
-SRCS = $(wildcard $(SRCDIR)/*.asm) $(wildcard $(TESTDIR)/*.asm)
+SRCS = $(wildcard $(SRCDIR)/*.asm) \
+       $(wildcard $(SRC_LIBS)/*.asm) \
+       $(wildcard $(SRC_MLP)/*.asm) \
+       $(wildcard $(TESTDIR)/*.asm)
 
 OBJS = $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.obj,$(wildcard $(SRCDIR)/*.asm)) \
+       $(patsubst $(SRC_LIBS)/%.asm,$(OBJDIR)/libs_%.obj,$(wildcard $(SRC_LIBS)/*.asm)) \
+       $(patsubst $(SRC_MLP)/%.asm,$(OBJDIR)/mlp_%.obj,$(wildcard $(SRC_MLP)/*.asm)) \
        $(patsubst $(TESTDIR)/%.asm,$(OBJDIR)/%.obj,$(wildcard $(TESTDIR)/*.asm))
 
 all: $(BINDIR) $(OBJDIR) $(TARGET)
@@ -28,6 +35,12 @@ $(TARGET): $(OBJS)
 	$(LD) $(LDFLAGS) -Wl,-e,main -o $@ $^
 
 $(OBJDIR)/%.obj: $(SRCDIR)/%.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJDIR)/libs_%.obj: $(SRC_LIBS)/%.asm
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(OBJDIR)/mlp_%.obj: $(SRC_MLP)/%.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(OBJDIR)/%.obj: $(TESTDIR)/%.asm
