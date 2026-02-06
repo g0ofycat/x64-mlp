@@ -37,7 +37,7 @@ section .text
     global main
 
 main:
-    sub rsp, 40
+    sub rsp, 72
 
     call init_random
 
@@ -46,11 +46,11 @@ main:
     lea r8, [biases]
     lea r9, [output_matrix]
 
-    mov qword [rsp + 0], 3
-    mov qword [rsp + 8], 4
-    mov qword [rsp + 16], 3
-    mov qword [rsp + 24], 0
-    mov qword [rsp + 32], 0
+    mov qword [rsp + 40], 1
+    mov qword [rsp + 48], 4
+    mov qword [rsp + 56], 3
+    mov qword [rsp + 64], 0
+    mov qword [rsp + 72], 0
 
     call mlp_feed_forward
 
@@ -60,15 +60,15 @@ main:
     cmp r12, 3
     jge .done
 
-    lea rcx, [fmt_output]   ; format string
-    mov rdx, r12            ; 2nd arg (index)
+    lea rcx, [fmt_output]
+    mov rdx, r12
 
     lea rax, [output_matrix]
     movss xmm0, [rax + r12*4]
-    cvtss2sd xmm0, xmm0     ; promote float → double
+    cvtss2sd xmm0, xmm0
 
-    movq r8, xmm0           ; 3rd arg integer register
-    movsd xmm0, xmm0        ; 3rd arg float register
+    movq r8, xmm0
+    movsd xmm0, xmm0
 
     call printf
 
@@ -76,7 +76,7 @@ main:
     jmp .print_loop
 
 .done:
-    add rsp, 40
+    add rsp, 72
 
     xor ecx, ecx
     call exit

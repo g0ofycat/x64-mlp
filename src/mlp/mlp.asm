@@ -25,11 +25,11 @@ section .text
 ; @param: rdx - Weight matrix pointer
 ; @param: r8  - Bias vector pointer
 ; @param: r9  - Output matrix pointer (pre-allocated)
-; @param: [rbp+56] - Input rows (batch size)
-; @param: [rbp+64] - Input columns (input neurons)
-; @param: [rbp+72] - Output columns (output neurons)
-; @param: [rbp+80] - Apply dropout (0 or 1)
-; @param: [rbp+88] - If dropout, dropout rate
+; @param: [rbp+40] - Input rows (batch size)
+; @param: [rbp+48] - Input columns (input neurons)
+; @param: [rbp+56] - Output columns (output neurons)
+; @param: [rbp+64] - Apply dropout (0 or 1)
+; @param: [rbp+72] - If dropout, dropout rate
 ; @return: rax - Pointer to output matrix
 mlp_feed_forward:
     push rbp
@@ -43,7 +43,7 @@ mlp_feed_forward:
     push r14
     push r15
 
-    sub rsp, 40
+    sub rsp, 72
 
     mov r12, rcx            ; input pointer
     mov r13, rdx            ; weight pointer
@@ -124,10 +124,11 @@ mlp_feed_forward:
     mov rax, rbx
     imul rax, r11           ; total elements
     mov r8, rax             ; len
+
     call relu
-    
+
     cmp qword [rbp + 80], 0
-    je .done
+    je .do_softmax
 
     mov rcx, r15
     mov rax, rbx
@@ -137,13 +138,23 @@ mlp_feed_forward:
     mov r8, rax
 
     movss xmm0, [rbp + 88]
+
     call apply_dropout
+
+; @function .do_softmax: Do softmax on r15
+.do_softmax:
+    mov rcx, r15
+    mov rdx, r15
+
+    mov r8, r11
+
+    call softmax
 
 ; @function .done: When Feed Forward is done
 .done:
     mov rax, r15
 
-    add rsp, 40
+    add rsp, 72
 
     pop r15
     pop r14

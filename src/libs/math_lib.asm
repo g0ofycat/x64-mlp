@@ -45,6 +45,7 @@ relu:
 
 ; @function softmax: Softmax activaton function
 ; @param: rcx - Pointer to input array
+; @param: r8 - Array length
 ; @return rdx - Output to the softmaxxed array
 softmax:
     push rbx
@@ -126,6 +127,7 @@ softmax:
 ; @function cross_entropy_loss: Cross Entropy Loss Function
 ; @param: rcx - Pointer to prediction array
 ; @param: rdx - Pointer to label array
+; @param: r8 - Array length
 ; @return: xmm0 - Loss Value 
 cross_entropy_loss:
     push rbx
