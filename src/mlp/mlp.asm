@@ -25,11 +25,11 @@ section .text
 ; @param: rdx - Weight matrix pointer
 ; @param: r8  - Bias vector pointer
 ; @param: r9  - Output matrix pointer (pre-allocated)
-; @param: [rsp+56] - Input rows (batch size)
-; @param: [rsp+64] - Input columns (input neurons)
-; @param: [rsp+72] - Output columns (output neurons)
-; @param: [rsp+80] - Apply dropout (0 or 1)
-; @param: [rsp+88] - If dropout, dropout rate
+; @param: [rbp+56] - Input rows (batch size)
+; @param: [rbp+64] - Input columns (input neurons)
+; @param: [rbp+72] - Output columns (output neurons)
+; @param: [rbp+80] - Apply dropout (0 or 1)
+; @param: [rbp+88] - If dropout, dropout rate
 ; @return: rax - Pointer to output matrix
 mlp_feed_forward:
     push rbp
@@ -37,21 +37,22 @@ mlp_feed_forward:
     mov rbp, rsp
 
     push rbx
+    push rsi
     push r12
     push r13
     push r14
     push r15
 
-    sub rsp, 32
+    sub rsp, 40
 
     mov r12, rcx            ; input pointer
     mov r13, rdx            ; weight pointer
     mov r14, r8             ; bias pointer
     mov r15, r9             ; output pointer
 
-    mov rbx, [rbp + 56]     ; rows (batch size)
-    mov r10, [rbp + 64]     ; input_cols
-    mov r11, [rbp + 72]     ; output_cols
+    mov rbx, [rbp + 56]      ; input_rows (batch size)
+    mov r10, [rbp + 64]      ; input_cols
+    mov r11, [rbp + 72]      ; output_cols
 
     xor r8, r8              ; r = 0
 
@@ -69,25 +70,25 @@ mlp_feed_forward:
 
     movss xmm6, [r14 + r9*4] ; bias[j]
 
-    xor rax, rax             ; k = 0
+    xor rsi, rsi             ; k = 0
 
 ; @function .inner_loop: Calculate output after forward pass
 .inner_loop:
-    cmp rax, r10
+    cmp rsi, r10
     jge .store_output
 
     ; output[i,j] += input[i,k] * weight[k,j]
 
     ; calc input[i,k]
 
-    mov rcx, r8
-    imul rcx, r10               ; rax = i * input_cols
+    mov rdx, r8
+    imul rdx, r10               ; rax = i * input_cols
 
-    add rcx, rax                ; rax = i * input_cols + k
-    movss xmm0, [r12 + rcx*4]   ; xmm0 = input[i,k]
+    add rdx, rsi                ; rax = i * input_cols + k
+    movss xmm0, [r12 + rdx*4]   ; xmm0 = input[i,k]
 
     ; calc weight[k,j]
-    mov rdx, rax
+    mov rdx, rsi
     imul rdx, r11               ; rax = k * output_cols
     add rdx, r9                 ; rax = k * output_cols + j
 
@@ -97,17 +98,17 @@ mlp_feed_forward:
     mulss xmm0, xmm1
     addss xmm6, xmm0
 
-    inc rax
+    inc rsi
     jmp .inner_loop
 
 ; @function .store_output: Store output and jump to next col
 .store_output:
-    mov rax, r8
+    mov rdx, r8
 
-    imul rax, r11
-    add rax, r9
+    imul rdx, r11
+    add rdx, r9
 
-    movss [r15 + rax*4], xmm6
+    movss [r15 + rdx*4], xmm6
 
     inc r9
     jmp .col_loop
@@ -120,13 +121,12 @@ mlp_feed_forward:
 ; @function .apply_activation: Apply activation function
 .apply_activation:
     mov rcx, r15            ; output pointer
-    mov rdx, r15
     mov rax, rbx
     imul rax, r11           ; total elements
     mov r8, rax             ; len
     call relu
     
-    cmp qword [rsp + 80], 0
+    cmp qword [rbp + 80], 0
     je .done
 
     mov rcx, r15
@@ -136,19 +136,20 @@ mlp_feed_forward:
 
     mov r8, rax
 
-    movss xmm0, [rsp + 88]
+    movss xmm0, [rbp + 88]
     call apply_dropout
 
 ; @function .done: When Feed Forward is done
 .done:
     mov rax, r15
 
-    add rsp, 32
+    add rsp, 40
 
     pop r15
     pop r14
     pop r13
     pop r12
+    pop rsi
     pop rbx
     pop rbp
 
