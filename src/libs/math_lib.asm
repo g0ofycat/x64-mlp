@@ -13,19 +13,31 @@ section .text
 
 ; =============== relu ===============
 
-; @function relu: ReLU activation function (In Place)
+; @function relu: ReLU activation function (in-place)
 ; @param: rcx - The array to apply ReLU to
 ; @param: r8 - Array Length
 relu:
-    push rbx
-
-    mov rbx, r8
     xor r10, r10
     xorps xmm1, xmm1
 
-; @function .loop: Loop to calculate ReLU
-.loop:
-    cmp r10, rbx
+    mov r9, r8
+    and r9, -4
+
+; @function .loop: Loop to calculate ReLU (4 SIMD)
+.simd_loop:
+    cmp r10, r9
+    jge .scalar_tail
+
+    movups xmm0, [rcx + r10*4]
+    maxps xmm0, xmm1
+    movups [rcx + r10*4], xmm0
+
+    add r10, 4
+    jmp .simd_loop
+
+; @function .scalar_tail: Calculate remaining ReLU if not a multiple of 4
+.scalar_tail:
+    cmp r10, r8
     jge .done
 
     movss xmm0, [rcx + r10*4]
@@ -33,12 +45,61 @@ relu:
     movss [rcx + r10*4], xmm0
 
     inc r10
-
-    jmp .loop
+    jmp .scalar_tail
 
 ; @function .done: Label when ReLU loop is done
 .done:
-    pop rbx
+    ret
+
+; =============== relu_derivative ===============
+
+; @function relu_derivative; ReLU Derivative (in-place)
+; @param rcx - Pointer to original output (forward pass)
+; @param rdx - Pointer to gradients (to be modified in-place)
+; @param r8  - Array Length
+relu_derivative:
+    xor r10, r10
+    xorps xmm2, xmm2
+
+    mov r9, r8
+    and r9, -4
+
+; @function .simd_loop: Loop to calculate ReLU Derivative (4 SIMD)
+.simd_loop:
+    cmp r10, r9
+    jge .scalar_tail
+
+    movups xmm0, [rcx + r10*4]
+    movups xmm1, [rdx + r10*4]
+
+    cmpltps xmm2, xmm0
+    andps xmm1, xmm2
+
+    movups [rdx + r10*4], xmm1
+    xorps xmm2, xmm2
+
+    add r10, 4
+    jmp .simd_loop
+
+; @function .scalar_tail: Calculate remaining ReLU Derivatives if not a multiple of 4
+.scalar_tail:
+    cmp r10, r8
+    jge .done
+
+    movss xmm0, [rcx + r10*4]
+    movss xmm1, [rdx + r10*4]
+
+    pxor xmm2, xmm2
+    cmpltss xmm2, xmm0
+
+    andps xmm1, xmm2
+    movss [rdx + r10*4], xmm1
+
+    inc r10
+    jmp .scalar_tail
+
+; @function .done: Label when ReLU Derivative is done
+.done:
     ret
 
 ; =============== softmax ===============
@@ -53,7 +114,7 @@ softmax:
     push r13
     push r14
 
-    sub rsp, 32
+    sub rsp, 40
 
     mov r12, rcx
     mov r13, rdx
@@ -82,7 +143,7 @@ softmax:
 ; @function .exp_loop: Loop to find exp sum
 .exp_loop:
     cmp r14, rbx
-    jge .compute_softmax
+    jge .vector_divide
 
     ; exp(input[i] - max)
     movss xmm0, [r12 + r14*4]
@@ -95,12 +156,28 @@ softmax:
     inc r14
     jmp .exp_loop
 
-; @function .compute_softmax: xor to div by sum
-.compute_softmax:
+; @function .vector_divide: SIMD Average calculate (4 SIMD)
+.vector_divide:
+    shufps xmm7, xmm7, 0
     xor r14, r14
 
-; @function .divide_loop: Divide to get the average
-.divide_loop:
+    mov rax, rbx
+    and rax, -4
+
+; @function .div_simd: Divide SIMD
+.div_simd:
+    cmp r14, rax
+    jge .div_scalar
+
+    movups xmm0, [r13 + r14*4]
+    divps xmm0, xmm7
+    movups [r13 + r14*4], xmm0
+
+    add r14, 4
+    jmp .div_simd
+
+; @function .div_scalar: Divide remaining scalars
+.div_scalar:
     cmp r14, rbx
     jge .done
 
@@ -109,11 +186,11 @@ softmax:
     movss [r13 + r14*4], xmm0
 
     inc r14
-    jmp .divide_loop
+    jmp .div_scalar
 
 ; @function .done: Softmax done
 .done:
-    add rsp, 32
+    add rsp, 40
 
     pop r14
     pop r13
@@ -135,7 +212,7 @@ cross_entropy_loss:
     push r13
     push r14
 
-    sub rsp, 32
+    sub rsp, 40
 
     mov r12, rcx
     mov r13, rdx
@@ -153,9 +230,8 @@ cross_entropy_loss:
     movss xmm0, [r12 + r14*4]   ; prediction
     call logf                   ; xmm0 = log(prediction)
 
-    movss xmm1, [r13 + r14*4]   ; label
-    mulss xmm0, xmm1            ; label * log(pred)
-    subss xmm6, xmm0            ; sum -= result
+    mulss xmm0, [r13 + r14*4]   ; label * log(pred)
+    subss xmm6, xmm0 
 
     inc r14
     jmp .loop
@@ -163,8 +239,8 @@ cross_entropy_loss:
 ; @function .done: Cross Entropy Loss Done
 .done:
     movss xmm0, xmm6
- 
-    add rsp, 32
+
+    add rsp, 40
 
     pop r14
     pop r13

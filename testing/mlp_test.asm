@@ -22,6 +22,7 @@ extern exit
 section .data
     input_matrix dd 0.5, 0.8, 0.3, 0.9
 
+    fmt_cycles db "CPU Cycles: %d", 10, 0
     fmt_output db "Output[%d] = %.4f", 10, 0
 
 section .bss
@@ -34,6 +35,13 @@ main:
     sub rsp, 72
 
     call init_random
+
+    xor eax, eax
+    cpuid
+    rdtsc
+    shl rdx, 32
+    or  rax, rdx
+    mov r13, rax 
 
     mov rcx, [input_neurons]
     mov rdx, [hidden_neurons]
@@ -56,6 +64,18 @@ main:
     mov qword [rsp + 72], 0
 
     call mlp_feed_forward
+
+    rdtscp
+    shl rdx, 32
+    or  rax, rdx
+    mov rax, r12
+
+    cpuid
+    sub r13, r12
+
+    lea rcx, [fmt_cycles]
+    mov rdx, r13
+    call printf
 
     xor r12, r12
 
