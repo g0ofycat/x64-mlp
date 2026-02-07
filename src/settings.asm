@@ -26,4 +26,16 @@ section .data
 
     ; @data: SGD Settings
 
-    batch_size dq 32
+    batch_size dq 1
+
+; @section: Training Buffers
+section .bss
+    ; @data: Global buffers
+
+    global bias_base_ptr
+    global grad_base_ptr
+
+    ; @data: Buffers
+
+    bias_base_ptr resd 16777216
+    grad_base_ptr resd 16777216

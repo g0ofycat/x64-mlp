@@ -4,11 +4,12 @@ extern input_neurons
 extern hidden_neurons
 extern hidden_layers
 extern output_neurons
+
 extern epochs
 extern learning_rate
 extern dropout_rate
-
 extern batch_size
+
 extern mlp_feed_forward
 extern mlp_train
 extern mlp_back_propagation
@@ -20,7 +21,9 @@ extern printf
 extern exit
 
 section .data
-    input_matrix dd 0.5, 0.8, 0.3, 0.9
+    input_matrix dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
+
+    target_matrix dd 0.0, 1.0, 1.0, 0.0
 
     fmt_cycles db "CPU Cycles: %d", 10, 0
     fmt_output db "Output[%d] = %.4f", 10, 0
@@ -32,7 +35,7 @@ section .text
     global main
 
 main:
-    sub rsp, 72
+    sub rsp, 40
 
     call init_random
 
@@ -58,8 +61,8 @@ main:
     lea r9, [output_matrix]
 
     mov qword [rsp + 40], 1
-    mov qword [rsp + 48], 4
-    mov qword [rsp + 56], 3
+    mov qword [rsp + 48], 8
+    mov qword [rsp + 56], 4
     mov qword [rsp + 64], 0
     mov qword [rsp + 72], 0
 
@@ -99,7 +102,7 @@ main:
     jmp .print_loop
 
 .done:
-    add rsp, 72
+    add rsp, 40
 
     xor ecx, ecx
     call exit

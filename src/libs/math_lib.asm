@@ -6,6 +6,7 @@ extern logf
 ; @section: Global labels
 section .text
     global relu
+    global relu_derivative
     global softmax
     global cross_entropy_loss
 
