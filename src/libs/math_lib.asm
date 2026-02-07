@@ -72,11 +72,11 @@ relu_derivative:
     movups xmm0, [rcx + r10*4]
     movups xmm1, [rdx + r10*4]
 
-    cmpltps xmm2, xmm0
-    andps xmm1, xmm2
+    movaps xmm3, xmm2
+    cmpltps xmm3, xmm0
 
+    andps xmm1, xmm3
     movups [rdx + r10*4], xmm1
-    xorps xmm2, xmm2
 
     add r10, 4
     jmp .simd_loop
@@ -89,10 +89,10 @@ relu_derivative:
     movss xmm0, [rcx + r10*4]
     movss xmm1, [rdx + r10*4]
 
-    pxor xmm2, xmm2
-    cmpltss xmm2, xmm0
+    pxor xmm3, xmm3
+    cmpltss xmm3, xmm0
 
-    andps xmm1, xmm2
+    andps xmm1, xmm3
     movss [rdx + r10*4], xmm1
 
     inc r10
@@ -188,7 +188,7 @@ softmax:
     inc r14
     jmp .div_scalar
 
-; @function .done: Softmax done
+; @function .done: Label when Softmax is done
 .done:
     add rsp, 40
 
@@ -236,7 +236,7 @@ cross_entropy_loss:
     inc r14
     jmp .loop
 
-; @function .done: Cross Entropy Loss Done
+; @function .done: Label when Cross Entropy Loss is done
 .done:
     movss xmm0, xmm6
 
