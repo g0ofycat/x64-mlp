@@ -42,13 +42,15 @@ section .text
 main:
     push rbp
     mov rbp, rsp
+
     push rsi
     push rbx
     push r12
     push r13
     push r14
     push r15
-    sub rsp, 128
+
+    sub rsp, 144
 
     call init_random
 
@@ -149,7 +151,7 @@ main:
     jmp .print_loop
 
 .done:
-    add rsp, 128
+    add rsp, 144
 
     pop r15
     pop r14
