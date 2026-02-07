@@ -5,10 +5,15 @@ default rel
 extern rand
 extern srand
 extern time
+extern malloc
+extern sqrtss
 
 ; @section: Data for apply_dropout
 section .data
-    one dd 1.0
+    one_f dd 1.0
+    two_f dd 2.0
+    six_f dd 6.0
+
     rand_max_float dd 32767.0       ; at least on cpp im pretty sure this is the lowest constant
     min_keep dd 0.00001
 
@@ -16,6 +21,7 @@ section .data
 section .text
     global init_random
     global apply_dropout
+    global init_params
 
 ; =============== PUBLIC LABELS ===============
 
@@ -47,12 +53,12 @@ apply_dropout:
     push r12
     push r13
 
-    sub rsp, 56
+    sub rsp, 64
 
     mov r12, rcx        ; array pointer
     mov r13, r8         ; size
 
-    movss xmm2, [one]
+    movss xmm2, [one_f]
     subss xmm2, xmm0    ; keep_prob = 1 - dropout_rate
     maxss xmm2, [min_keep]
 
@@ -91,7 +97,194 @@ apply_dropout:
 
 ; @function .done: Label when dropout is done
 .done:
-    add rsp, 56
+    add rsp, 64
+
+    pop r13
+    pop r12
+    pop rbx
+
+    ret
+
+; =============== init_params ===============
+
+; @function init_params: Init weights (He Uniform) and biases (0)
+; @param rcx - Amount of input neurons
+; @param rdx - Amount of hidden neurons
+; @param r8 - Amount of hidden layers
+; @param r9 - Amount of output neurons
+; @return rax - Pointer to weight matrix
+; @return rdx - Pointer to the bias vector
+init_params:
+    push rbp
+    mov rbp, rsp
+
+    push r12
+    push r13
+    push r14
+    push r15
+    push rdi
+    push rsi
+
+    sub rsp, 72
+
+    mov [rbp - 8], rcx
+    mov [rbp - 16], rdx
+    mov [rbp - 24], r8
+    mov [rbp - 32], r9
+
+    mov rax, [rbp - 8]
+    imul rax, [rbp - 16]
+
+    mov r12, rax
+
+    mov rsi, [rbp - 24]
+    dec rsi
+    jz .skip_hidden_calc
+    
+    mov rax, [rbp - 16]
+    imul rax, [rbp - 16]
+    imul rax, rsi
+
+    add r12, rax
+
+; @function .skip_hidden_calc: Skip if only 1 hidden layer exists
+.skip_hidden_calc:
+    mov rax, [rbp - 16]
+    imul rax, [rbp - 32]
+
+    add r12, rax
+
+    mov rax, [rbp - 16]
+    imul rax, [rbp - 24]
+    add rax, [rbp - 32]
+
+    mov r13, rax
+
+    mov rcx, r12
+    shl rcx, 2
+    call malloc
+    mov r14, rax
+
+    mov rcx, r13
+    shl rcx, 2
+    call malloc
+    mov r15, rax
+
+    mov rdi, r14
+
+    mov rax, [rbp - 8]
+    mov rcx, rdi
+
+    mov rdx, [rbp - 8]
+    imul rdx, [rbp - 16]
+    call .he_fill
+
+    mov rax, [rbp - 8]
+    imul rax, [rbp - 16]
+
+    shl rax, 2
+    add rdi, rax
+
+    mov rsi, 1
+
+; @function .hidden_loop: Loop through hidden layers for weights
+.hidden_loop:
+    mov r10, [rbp - 24]
+    cmp rsi, r10
+    jge .final_layer
+
+    mov rax, [rbp - 16]
+    mov rcx, rdi
+
+    mov rdx, [rbp - 16]
+    imul rdx, [rbp - 16]
+
+    call .he_fill
+
+    mov rax, [rbp - 16]
+    imul rax, [rbp - 16]
+
+    shl rax, 2
+    add rdi, rax
+
+    inc rsi
+    jmp .hidden_loop
+
+; @function .final_layer: Initialize final weights
+.final_layer:
+    mov rax, [rbp - 16]
+    mov rcx, rdi
+
+    mov rdx, [rbp - 16]
+    imul rdx, [rbp - 32]
+    call .he_fill
+
+    mov rdi, r15
+    xor eax, eax
+    mov rcx, r13
+    rep stosd
+
+    mov rax, r14
+    mov rdx, r15
+
+    add rsp, 72
+
+    pop rsi
+    pop rdi
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+
+    ret
+
+; =============== INTERNAL HELPERS ===============
+
+; @function .he_fill: Fill a buffer with He Uniform distribution
+; @param rcx - Buffer pointer
+; @param rdx - Element count
+; @param rax - fan_in (for limit calculation)
+.he_fill:
+    push rbx
+    push r12
+    push r13
+
+    sub rsp, 48
+
+    mov rbx, rcx
+    mov r12, rdx
+
+    cvtsi2ss xmm0, rax
+    movss xmm1, [six_f]
+    divss xmm1, xmm0
+    sqrtss xmm0, xmm1
+    movss [rsp + 40], xmm0
+
+    xor r13, r13
+
+; @function .f_loop: Loop to generate random floats
+.f_loop:
+    cmp r13, r12
+    jge .f_done
+
+    call rand
+
+    and eax, 0x7FFF
+    cvtsi2ss xmm0, eax
+    divss xmm0, [rand_max_float]
+    mulss xmm0, [two_f]
+    subss xmm0, [one_f]
+    mulss xmm0, [rsp + 40]      ; todo: check if rand overrides xmm0
+
+    movss [rbx + r13*4], xmm0
+
+    inc r13
+    jmp .f_loop
+
+; @function .f_done: Cleanup and return from fill
+.f_done:
+    add rsp, 48
 
     pop r13
     pop r12

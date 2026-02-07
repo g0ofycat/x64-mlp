@@ -14,19 +14,13 @@ extern mlp_train
 extern mlp_back_propagation
 
 extern init_random
+extern init_params
 
 extern printf
 extern exit
 
 section .data
     input_matrix dd 0.5, 0.8, 0.3, 0.9
-
-    weights dd 0.1, 0.2, 0.3
-            dd 0.4, 0.5, 0.6
-            dd 0.7, 0.8, 0.9
-            dd 0.2, 0.3, 0.4
-
-    biases dd 0.1, 0.2, 0.3
 
     fmt_output db "Output[%d] = %.4f", 10, 0
 
@@ -41,9 +35,18 @@ main:
 
     call init_random
 
+    mov rcx, [input_neurons]
+    mov rdx, [hidden_neurons]
+    mov r8, [hidden_layers]
+    mov r9, [output_neurons]
+    call init_params
+
+    mov r10, rax
+    mov r11, rdx
+
     lea rcx, [input_matrix]
-    lea rdx, [weights]
-    lea r8, [biases]
+    mov rdx, r10
+    mov r8, r11
     lea r9, [output_matrix]
 
     mov qword [rsp + 40], 1

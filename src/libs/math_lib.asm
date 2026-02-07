@@ -165,6 +165,7 @@ cross_entropy_loss:
     movss xmm0, xmm6
  
     add rsp, 32
+
     pop r14
     pop r13
     pop r12
