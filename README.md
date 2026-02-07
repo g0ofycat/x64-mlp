@@ -8,7 +8,7 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 
 - **OS:** Windows 11
 
-- **ASSEMBLER:** nasm
+- **ASSEMBLER:** nasm 2.16.03
 
 - **ASSEMBLY FLAVOUR:** Intel
 
@@ -21,11 +21,3 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 **RAM:** 8 GB DDR5
 
 **GPU:** AMD Radeon 760M Graphics
-
-### TODO:
-
-- MAYBE simd for he init
-
-- add backprop and train loop
-
-- optimize

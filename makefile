@@ -4,7 +4,7 @@ LD = gcc
 ASFLAGS = -f win64
 LDFLAGS = -m64
 
-TARGET = $(BINDIR)/mlp_x64.exe
+TARGET = $(BINDIR)/mlp-x64.exe
 
 SRCDIR = src
 SRC_LIBS = $(SRCDIR)/libs

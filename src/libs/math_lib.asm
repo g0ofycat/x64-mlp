@@ -48,7 +48,7 @@ relu:
     inc r10
     jmp .scalar_tail
 
-; @function .done: Label when ReLU loop is done
+; @function .done: Label when relu is done
 .done:
     ret
 
@@ -57,7 +57,7 @@ relu:
 ; @function relu_derivative; ReLU Derivative (in-place)
 ; @param rcx - Pointer to original output (forward pass)
 ; @param rdx - Pointer to gradients (to be modified in-place)
-; @param r8  - Array Length
+; @param r8 - Array Length
 relu_derivative:
     xor r10, r10
     xorps xmm2, xmm2
@@ -99,23 +99,22 @@ relu_derivative:
     inc r10
     jmp .scalar_tail
 
-; @function .done: Label when ReLU Derivative is done
+; @function .done: Label when relu_derivative is done
 .done:
     ret
 
 ; =============== softmax ===============
 
-; @function softmax: Softmax activaton function
+; @function softmax: Softmax activaton function (in-place)
 ; @param: rcx - Pointer to input array
 ; @param: r8 - Array length
-; @return rdx - Output to the softmaxxed array
 softmax:
     push rbx
     push r12
     push r13
     push r14
 
-    sub rsp, 40
+    sub rsp, 88     ; todo: xmm6 xmm7 push stack (?)
 
     mov r12, rcx
     mov r13, rdx
@@ -189,9 +188,9 @@ softmax:
     inc r14
     jmp .div_scalar
 
-; @function .done: Label when Softmax is done
+; @function .done: Label when softmax is done
 .done:
-    add rsp, 40
+    add rsp, 88
 
     pop r14
     pop r13
@@ -237,7 +236,7 @@ cross_entropy_loss:
     inc r14
     jmp .loop
 
-; @function .done: Label when Cross Entropy Loss is done
+; @function .done: Label when cross_entropy_loss is done
 .done:
     movss xmm0, xmm6
 

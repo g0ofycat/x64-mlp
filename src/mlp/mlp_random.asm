@@ -112,7 +112,7 @@ apply_dropout:
 ; @param rdx - Amount of hidden neurons
 ; @param r8 - Amount of hidden layers
 ; @param r9 - Amount of output neurons
-; @return rax - Pointer to weight matrix
+; @return rax - Pointer to weight tensor
 ; @return rdx - Pointer to the bias vector
 init_params:
     push rbp
@@ -125,7 +125,7 @@ init_params:
     push rdi
     push rsi
 
-    sub rsp, 72
+    sub rsp, 80
 
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
@@ -227,7 +227,7 @@ init_params:
     mov rax, r14
     mov rdx, r15
 
-    add rsp, 72
+    add rsp, 80
 
     pop rsi
     pop rdi
