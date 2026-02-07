@@ -38,12 +38,13 @@ mlp_feed_forward:
 
     push rbx
     push rsi
+    push rdi
     push r12
     push r13
     push r14
     push r15
 
-    sub rsp, 72
+    sub rsp, 88
 
     mov r12, rcx            ; input pointer
     mov r13, rdx            ; weight pointer
@@ -54,68 +55,93 @@ mlp_feed_forward:
     mov r10, [rbp + 64]      ; input_cols
     mov r11, [rbp + 72]      ; output_cols
 
-    xor r8, r8              ; r = 0
+    xor rsi, rsi              ; i = 0
 
 ; @function .row_loop: Apply activation to each row
 .row_loop:
-    cmp r8, rbx
+    cmp rsi, rbx
     jge .apply_activation
 
-    xor r9, r9
+    mov rax, rsi
 
-; @function .col_loop: Iterate through each col
-.col_loop:
-    cmp r9, r11
+    imul rax, r11
+    lea rdi, [r15, rax*4]
+
+    xor r8, r8                ; j = 0
+
+; @function .bias_fill: Fill bias based on output columns
+.bias_fill:
+    cmp r8, r11
+    jge .start_k_loop
+
+    movss xmm0, [r14 + r8*4]
+    movss [rdi + r8*4], xmm0
+
+    inc r8
+    jmp .bias_fill
+
+; @function .start_k_loop: xor rcx
+.start_k_loop:
+    xor rcx, rcx              ; k = 0
+
+; @function .k_loop: Loop through current column
+.k_loop:
+    cmp rcx, r10
     jge .next_row
 
-    movss xmm6, [r14 + r9*4] ; bias[j]
+    mov rax, rsi
+    imul rax, r10
+    add rax, rcx
 
-    xor rsi, rsi             ; k = 0
+    movss xmm0, [r12 + rax*4]
+    shufps xmm0, xmm0, 0
 
-; @function .inner_loop: Calculate output after forward pass
-.inner_loop:
-    cmp rsi, r10
-    jge .store_output
+    mov rax, rcx
+    imul rax, r11
+    lea rdx, [r13 + rax*4]
 
-    ; output[i,j] += input[i,k] * weight[k,j]
+    xor r8, r8               ; j = 0
 
-    ; calc input[i,k]
+; @function .j_loop_simd: Loop through current row
+.j_loop_simd:
+    mov rax, r11
+    sub rax, r8
 
-    mov rdx, r8
-    imul rdx, r10               ; rax = i * input_cols
+    cmp rax, 4
+    jl .j_loop_scalar
 
-    add rdx, rsi                ; rax = i * input_cols + k
-    movss xmm0, [r12 + rdx*4]   ; xmm0 = input[i,k]
+    movups xmm1, [rdx + r8*4]
+    movups xmm2, [rdi + r8*4]
 
-    ; calc weight[k,j]
-    mov rdx, rsi
-    imul rdx, r11               ; rax = k * output_cols
-    add rdx, r9                 ; rax = k * output_cols + j
+    mulps xmm1, xmm0
+    addps xmm2, xmm1
 
-    movss xmm1, [r13 + rdx*4]   ; xmm1 = weight[k,j]
+    movups [rdi + r8*4], xmm2
 
-    ; mult and accum
-    mulss xmm0, xmm1
-    addss xmm6, xmm0
+    add r8, 4
+    jmp .j_loop_simd
 
-    inc rsi
-    jmp .inner_loop
+; @function .j_loop_scalar: Scalar mult
+.j_loop_scalar:
+    cmp r8, r11
+    jge .next_k
 
-; @function .store_output: Store output and jump to next col
-.store_output:
-    mov rdx, r8
+    movss xmm1, [rdx + r8*4]
+    mulss xmm1, xmm0
+    addss xmm1, [rdi + r8*4]
+    movss [rdi + r8*4], xmm1
 
-    imul rdx, r11
-    add rdx, r9
-
-    movss [r15 + rdx*4], xmm6
-
-    inc r9
-    jmp .col_loop
-
-; @function .next_row: Increment and jump to next row
-.next_row:
     inc r8
+    jmp .j_loop_scalar
+
+; @function .next_k: Jump to the next column
+.next_k:
+    inc rcx
+    jmp .k_loop
+
+; @function .next_row: Jump to the next row
+.next_row:
+    inc rsi
     jmp .row_loop
 
 ; @function .apply_activation: Apply activation function
@@ -154,12 +180,13 @@ mlp_feed_forward:
 .done:
     mov rax, r15
 
-    add rsp, 72
+    add rsp, 88
 
     pop r15
     pop r14
     pop r13
     pop r12
+    pop rdi
     pop rsi
     pop rbx
     pop rbp

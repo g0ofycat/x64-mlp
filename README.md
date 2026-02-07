@@ -17,3 +17,11 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 ## Other:
 
 dropout impl also, probably not more performant that -O3. proj meant for mogging
+
+### TODO:
+
+- MAYBE simd for he init
+
+- add backprop and train loop
+
+- optimize
