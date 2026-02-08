@@ -113,7 +113,7 @@ apply_dropout:
 ; @param r8 - Amount of hidden layers
 ; @param r9 - Amount of output neurons
 ; @return rax - Pointer to weight tensor
-; @return rdx - Pointer to the bias vector
+; @return rdx - Pointer to the bias tensor
 init_params:
     push rbp
     mov rbp, rsp

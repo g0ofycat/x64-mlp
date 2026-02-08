@@ -143,7 +143,7 @@ softmax:
 ; @function .exp_loop: Loop to find exp sum
 .exp_loop:
     cmp r14, rbx
-    jge .vector_divide
+    jge .tensor_divide
 
     ; exp(input[i] - max)
     movss xmm0, [r12 + r14*4]
@@ -156,8 +156,8 @@ softmax:
     inc r14
     jmp .exp_loop
 
-; @function .vector_divide: SIMD Average calculate (4 SIMD)
-.vector_divide:
+; @function .tensor_divide: SIMD Average calculate (4 SIMD)
+.tensor_divide:
     shufps xmm7, xmm7, 0
     xor r14, r14
 

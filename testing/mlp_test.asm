@@ -30,7 +30,6 @@ section .data
 
     target_tensor dd 0.0, 1.0, 1.0, 0.0
 
-    fmt_cycles db "CPU Cycles: %d", 10, 0
     fmt_output db "Output[%d] = %.4f", 10, 0
 
 section .bss
@@ -53,13 +52,6 @@ main:
     sub rsp, 144
 
     call init_random
-
-    xor eax, eax
-    cpuid
-    rdtsc
-    shl rdx, 32
-    or rax, rdx
-    mov r13, rax
 
     mov rcx, [input_neurons]
     mov rdx, [hidden_neurons]
@@ -115,21 +107,6 @@ main:
     movss xmm0, [dropout_rate]
     movss [rsp + 72], xmm0
     call mlp_feed_forward
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
-
-    xor eax, eax
-    cpuid
-
-    sub r12, r13
-
-    lea rcx, [fmt_cycles]
-    mov rdx, r12
-    xor rax, rax
-    call printf
 
     xor r12, r12
     mov rbx, [output_neurons]

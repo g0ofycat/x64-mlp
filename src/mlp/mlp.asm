@@ -24,7 +24,7 @@ section .text
 ; @function mlp_feed_forward: Feed forward pass through one layer
 ; @param: rcx - Input tensor pointer
 ; @param: rdx - Weight tensor pointer
-; @param: r8 - Bias vector pointer
+; @param: r8 - Bias tensor pointer
 ; @param: r9 - Output tensor pointer (pre-allocated)
 ; @param: [rbp+40] - Input rows (batch size)
 ; @param: [rbp+48] - Input columns (input neurons)
@@ -203,7 +203,7 @@ mlp_feed_forward:
 ; @param: r9 - Input columns (input neurons)
 ; @param: [rbp+40] - Output columns (output neurons)
 ; @param: [rbp+48] - Pointer to the specific weight tensor (weight_base_ptr)
-; @param: [rbp+56] - Pointer to the specific bias vector (bias_base_ptr)
+; @param: [rbp+56] - Pointer to the specific bias tensor (bias_base_ptr)
 ; @param: [rbp+64] - Pointer to the specific gradient block (grad_base_ptr)
 ; @param: [rbp+72] - Pointer to the weight tensor for this layer
 ; @param: [rbp+80] - Pointer to the previous delta buffer (to propagate error)
@@ -212,7 +212,7 @@ mlp_feed_forward:
 ; @param: [rbp+104] - Apply dropout (0 or 1)
 ; @param: [rbp+112] - If dropout, dropout rate
 ; @return: rax - Pointer to the weight tensor
-; @return: rdx - Pointer to the bias vector
+; @return: rdx - Pointer to the bias tensor
 mlp_train:
     push rbp
     mov rbp, rsp
@@ -240,7 +240,7 @@ mlp_train:
 .epoch_loop:
     mov rcx, r14                 ; input tensor
     mov rdx, [rbp + 136]         ; weight tensor
-    mov r8, [rbp + 120]          ; bias vector
+    mov r8, [rbp + 120]          ; bias tensor
     mov r9, [rbp + 144]          ; output buffer (delta buffer)
 
     mov rax, r12
@@ -288,7 +288,7 @@ mlp_train:
     movss xmm0, [rbp + 160]      ; learning rate
     call apply_sgd_step
 
-    mov rcx, [rbp + 120]         ; bias vector
+    mov rcx, [rbp + 120]         ; bias tensor
     mov rdx, [rbp + 128]         ; grad_base_ptr
 
     mov rax, r13
@@ -327,12 +327,12 @@ mlp_train:
 ; @param: r9 - Input columns (input neurons)
 ; @param: [rbp+40] - Output columns (output neurons)
 ; @param: [rbp+48] - Pointer to the specific weight tensor (weight_base_ptr)
-; @param: [rbp+56] - Pointer to the specific bias vector (bias_base_ptr)
+; @param: [rbp+56] - Pointer to the specific bias tensor (bias_base_ptr)
 ; @param: [rbp+64] - Pointer to the specific gradient block (grad_base_ptr)
 ; @param: [rbp+72] - Pointer to the weight tensor for this layer
 ; @param: [rbp+80] - Pointer to the previous delta buffer (to propagate error)
 ; @return: rax - Pointer to the updated weight tensor
-; @return: rdx - Pointer to the updated bias vector
+; @return: rdx - Pointer to the updated bias tensor
 mlp_back_propagation:
     push rbp
     mov rbp, rsp
