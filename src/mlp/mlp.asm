@@ -202,15 +202,14 @@ mlp_feed_forward:
 ; @param: r8 - Input rows (batch size)
 ; @param: r9 - Input columns (input neurons)
 ; @param: [rbp+40] - Output columns (output neurons)
-; @param: [rbp+48] - Pointer to the specific weight tensor (weight_base_ptr)
-; @param: [rbp+56] - Pointer to the specific bias tensor (bias_base_ptr)
+; @param: [rbp+48] - Pointer to the weight tensor
+; @param: [rbp+56] - Pointer to the bias tensor
 ; @param: [rbp+64] - Pointer to the specific gradient block (grad_base_ptr)
-; @param: [rbp+72] - Pointer to the weight tensor for this layer
-; @param: [rbp+80] - Pointer to the previous delta buffer (to propagate error)
-; @param: [rbp+88] - Amount of Epochs
-; @param: [rbp+96] - Learning Rate
-; @param: [rbp+104] - Apply dropout (0 or 1)
-; @param: [rbp+112] - If dropout, dropout rate
+; @param: [rbp+72] - Pointer to the previous delta buffer
+; @param: [rbp+80] - Amount of Epochs
+; @param: [rbp+88] - Learning Rate
+; @param: [rbp+96] - Apply dropout (0 or 1)
+; @param: [rbp+104] - If dropout, dropout rate
 ; @return: rax - Pointer to the weight tensor
 ; @return: rdx - Pointer to the bias tensor
 mlp_train:
@@ -231,7 +230,7 @@ mlp_train:
     mov r14, rcx                ; input tensor
     mov r15, rdx                ; target tensor
 
-    mov rbx, [rbp + 152]        ; epochs
+    mov rbx, [rbp + 96]         ; epochs
 
     test rbx, rbx
     jz .done
@@ -239,19 +238,19 @@ mlp_train:
 ; @function .epoch_loop: Epoch training loop
 .epoch_loop:
     mov rcx, r14                 ; input tensor
-    mov rdx, [rbp + 136]         ; weight tensor
-    mov r8, [rbp + 120]          ; bias tensor
-    mov r9, [rbp + 144]          ; output buffer (delta buffer)
+    mov rdx, [rbp + 64]          ; weight tensor
+    mov r8, [rbp + 72]           ; bias tensor
+    mov r9, [rbp + 88]           ; delta buffer
 
     mov rax, r12
     mov [rsp + 40], rax          ; batch size
     mov rax, r13
     mov [rsp + 48], rax          ; input neurons
-    mov rax, [rbp + 104]         ; output neurons
+    mov rax, [rbp + 56]          ; output neurons
     mov [rsp + 56], rax
-    mov rax, [rbp + 168]         ; apply dropout
+    mov rax, [rbp + 112]         ; apply dropout
     mov [rsp + 64], rax
-    movss xmm0, [rbp + 176]      ; dropout rate
+    movss xmm0, [rbp + 120]      ; dropout rate
     movss [rsp + 72], xmm0 
     call mlp_feed_forward
 
@@ -259,43 +258,43 @@ mlp_train:
 
     mov rcx, r14                 ; input tensor
     mov rdx, r15                 ; target
-    mov r8, [rsp + 48]           ; predictions
-    mov r9, r12                  ; batch size
+    mov r8, r12                  ; batch size
+    mov r9, r13                  ; input neurons
 
-    mov rax, r13
-    mov [rsp + 40], rax          ; input neurons
-    mov rax, [rbp + 104]
-    mov [rsp + 48], rax          ; output neurons
-    mov rax, [rbp + 112]
-    mov [rsp + 56], rax          ; weight_base_ptr
-    mov rax, [rbp + 120]
-    mov [rsp + 64], rax          ; bias_base_ptr
-    mov rax, [rbp + 128]
-    mov [rsp + 72], rax          ; grad_base_ptr
-    mov rax, [rbp + 136]
-    mov [rsp + 80], rax          ; weight tensor for layer
-    mov rax, [rbp + 144]
-    mov [rsp + 88], rax          ; delta buffer
+    mov rax, [rsp + 48]          ; predictions
+    mov [rsp + 32], rax
+    mov rax, [rbp + 56]
+    mov [rsp + 40], rax          ; output neurons
+    mov rax, [rbp + 64]
+    mov [rsp + 48], rax          ; weight_base_ptr
+    mov rax, [rbp + 72]
+    mov [rsp + 56], rax          ; bias_base_ptr
+    mov rax, [rbp + 80]
+    mov [rsp + 64], rax          ; grad_base_ptr
+    mov rax, [rbp + 64]
+    mov [rsp + 72], rax          ; weight tensor for layer
+    mov rax, [rbp + 88]
+    mov [rsp + 80], rax          ; delta buffer
     call mlp_back_propagation
 
-    mov rcx, [rbp + 136]         ; weight tensor
-    mov rdx, [rbp + 128]         ; weight gradients (grad_base_ptr)
+    mov rcx, [rbp + 64]          ; weight tensor
+    mov rdx, [rbp + 80]          ; grad_base_ptr
 
     mov rax, r13                 ; input_neurons
-    mov r11, [rbp + 104]         ; output_neurons
+    mov r11, [rbp + 56]          ; output_neurons
     imul rax, r11                
     mov r8, rax
-    movss xmm0, [rbp + 160]      ; learning rate
+    movss xmm0, [rbp + 104]      ; learning rate
     call apply_sgd_step
 
-    mov rcx, [rbp + 120]         ; bias tensor
-    mov rdx, [rbp + 128]         ; grad_base_ptr
+    mov rcx, [rbp + 72]          ; bias tensor
+    mov rdx, [rbp + 80]          ; grad_base_ptr
 
     mov rax, r13
     imul rax, r11
     lea rdx, [rdx + rax*4]       ; bias gradients offset
     mov r8, r11                  ; output_neurons
-    movss xmm0, [rbp + 160]      ; learning rate
+    movss xmm0, [rbp + 104]      ; learning rate
     call apply_sgd_step
 
     dec rbx
@@ -303,8 +302,8 @@ mlp_train:
 
 ; @function .done: Label when training is done
 .done:
-    mov rax, [rbp + 136]
-    mov rdx, [rbp + 120]
+    mov rax, [rbp + 64]
+    mov rdx, [rbp + 72]
 
     add rsp, 112
 
@@ -323,14 +322,15 @@ mlp_train:
 ; @function mlp_back_propagation: Used by mlp_train for back propagation
 ; @param: rcx - Source to the input tensor
 ; @param: rdx - Source to the target tensor
-; @param: r8 - Input rows (batch size)
-; @param: r9 - Input columns (input neurons)
-; @param: [rbp+40] - Output columns (output neurons)
-; @param: [rbp+48] - Pointer to the specific weight tensor (weight_base_ptr)
-; @param: [rbp+56] - Pointer to the specific bias tensor (bias_base_ptr)
-; @param: [rbp+64] - Pointer to the specific gradient block (grad_base_ptr)
-; @param: [rbp+72] - Pointer to the weight tensor for this layer
-; @param: [rbp+80] - Pointer to the previous delta buffer (to propagate error)
+; @param: r8 - Batch size
+; @param: r9 - Input neurons
+; @param: [rbp+48] - Pointer to predictions
+; @param: [rbp+56] - Output neurons
+; @param: [rbp+64] - Pointer to the specific weight tensor (weight_base_ptr)
+; @param: [rbp+72] - Pointer to the specific bias tensor (bias_base_ptr)
+; @param: [rbp+80] - Pointer to the specific gradient block (grad_base_ptr)
+; @param: [rbp+88] - Pointer to the weight tensor for this layer
+; @param: [rbp+96] - Pointer to the previous delta buffer (to propagate error)
 ; @return: rax - Pointer to the updated weight tensor
 ; @return: rdx - Pointer to the updated bias tensor
 mlp_back_propagation:
@@ -345,18 +345,18 @@ mlp_back_propagation:
 
     sub rsp, 72
 
-    mov r12, r9                  ; batch size
-    mov r13, [rbp + 104]         ; input neurons
-    mov r14, [rbp + 112]         ; output neurons
-    mov r15, r8                  ; predictions
+    mov r12, r8                  ; batch size
+    mov r13, r9                  ; input neurons
+    mov r14, [rbp + 56]          ; output neurons
+    mov r15, [rbp + 48]          ; predictions
 
-    mov rcx, [rbp + 136]         ; grad_base_ptr
+    mov rcx, [rbp + 80]          ; grad_base_ptr
     mov rax, r13
     imul rax, r14
     mov r8, rax
     call zero_gradients
 
-    mov rcx, [rbp + 136]         ; grad_base_ptr
+    mov rcx, [rbp + 80]          ; grad_base_ptr
     mov rax, r13
     imul rax, r14
     lea rcx, [rcx + rax*4]       ; bias gradients offset
@@ -365,22 +365,22 @@ mlp_back_propagation:
 
     mov rcx, r15                 ; predictions
     mov rdx, rdx                 ; tensor target
-    mov r8, [rbp + 152]          ; delta buffer
+    mov r8, [rbp + 96]           ; delta buffer
     mov rax, r12
     imul rax, r14                ; batch * output_neurons
     mov r9, rax
     call compute_output_error
 
     mov rcx, rcx                 ; tensor input
-    mov rdx, [rbp + 152]         ; delta buffer
-    mov r8, [rbp + 136]          ; grad_base_ptr 
+    mov rdx, [rbp + 96]          ; delta buffer
+    mov r8, [rbp + 80]           ; grad_base_ptr 
     mov r9, r12                  ; batch size
     mov [rsp + 40], r13          ; input neurons
     mov [rsp + 48], r14          ; output neurons
     call compute_weight_gradients
 
-    mov rcx, [rbp + 152]         ; delta buffer
-    mov rdx, [rbp + 136]         ; grad_base_ptr
+    mov rcx, [rbp + 96]          ; delta buffer
+    mov rdx, [rbp + 80]          ; grad_base_ptr
     mov rax, r13
     imul rax, r14
     lea rdx, [rdx + rax*4]       ; bias gradients offset
@@ -388,8 +388,8 @@ mlp_back_propagation:
     mov r9, r14                  ; output neurons
     call compute_bias_gradients
 
-    mov rax, [rbp + 120]
-    mov rdx, [rbp + 128]
+    mov rax, [rbp + 88]
+    mov rdx, [rbp + 72]
 
     add rsp, 72
 
@@ -423,8 +423,8 @@ compute_weight_gradients:
 
     sub rsp, 40
 
-    mov r10, [rbp + 96]
-    mov r11, [rbp + 104]
+    mov r10, [rbp + 56]
+    mov r11, [rbp + 64]
 
     xor rsi, rsi           ; b = 0 (batch loop)
 
@@ -588,8 +588,8 @@ compute_hidden_error:
 
     sub rsp, 24
 
-    mov r10, [rbp + 96]
-    mov r11, [rbp + 104]
+    mov r10, [rbp + 56]
+    mov r11, [rbp + 64]
 
     xor rsi, rsi           ; b = 0
 

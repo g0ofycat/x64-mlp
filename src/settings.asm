@@ -14,21 +14,21 @@ section .data
 
     ; @data: MLP Architecture
 
-    input_neurons dq 2
+    input_neurons dq 8
     hidden_neurons dq 64
     hidden_layers dq 1
-    output_neurons dq 1
+    output_neurons dq 4
 
     ; @data: MLP Training
 
     epochs dq 10000
     learning_rate dd 0.01
-    enable_dropout dd 0
+    enable_dropout dd 1
     dropout_rate dd 0.1
 
     ; @data: SGD Settings
 
-    batch_size dq 4
+    batch_size dq 1
 
 ; @section: Training Buffers
 section .bss

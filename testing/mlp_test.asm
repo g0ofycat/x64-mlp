@@ -33,7 +33,7 @@ section .data
     fmt_output db "Output[%d] = %.4f", 10, 0
 
 section .bss
-    output_tensor resd 10000
+    output_tensor resd 4
 
 section .text
     global main
@@ -59,34 +59,33 @@ main:
     mov r9, [output_neurons]
     call init_params
 
-    mov r14, rax
-    mov r15, r11
+    mov r14, rax                ; weight tensor
+    mov r15, r11                ; bias tensor
 
     lea rcx, [input_tensor]
     lea rdx, [target_tensor]
     mov r8, [batch_size]
     mov r9, [input_neurons]
+
     mov rax, [output_neurons]
+    mov [rsp + 40], rax         ; output_neurons
 
-    mov [rsp + 40], rax
-    mov [rsp + 48], r14
-    mov [rsp + 56], r15
+    mov [rsp + 48], r14         ; weight tensor
+    mov [rsp + 56], r15         ; bias tensor
 
-    mov rax, [grad_base_ptr]
-    mov [rsp + 64], rax
-    mov rax, r14
-    mov [rsp + 72], rax
+    lea rax, [grad_base_ptr]
+    mov [rsp + 64], rax         ; grad_base_ptr
     lea rax, [output_tensor]
-    mov [rsp + 80], rax
+    mov [rsp + 72], rax         ; delta buffer
     mov rax, [epochs]
-    mov [rsp + 88], rax
+    mov [rsp + 80], rax         ; epochs
     movss xmm0, [learning_rate]
-    movss [rsp + 96], xmm0
+    movss [rsp + 88], xmm0      ; learning_rate
     mov rax, [enable_dropout]
-    mov [rsp + 104], rax
+    mov [rsp + 96], rax         ; enable_dropout
     movss xmm0, [dropout_rate]
-    movss [rsp + 112], xmm0
-    call mlp_train
+    movss [rsp + 104], xmm0     ; dropout_rate
+    call mlp_train 
 
     mov r14, rax                ; trained weights
     mov r15, rdx                ; trained biases
@@ -102,7 +101,7 @@ main:
     mov [rsp + 48], rax
     mov rax, [output_neurons]
     mov [rsp + 56], rax
-    mov rax, [enable_dropout]
+    mov rax, 0                  ; enable_dropout
     mov [rsp + 64], rax
     movss xmm0, [dropout_rate]
     movss [rsp + 72], xmm0
@@ -120,9 +119,7 @@ main:
     lea rax, [output_tensor]
     movss xmm0, [rax + r12*4]
     cvtss2sd xmm0, xmm0
-    sub rsp, 32
     call printf
-    add rsp, 32
 
     inc r12
     jmp .print_loop
