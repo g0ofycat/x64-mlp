@@ -15,16 +15,16 @@ section .data
     ; @data: MLP Architecture
 
     input_neurons dq 2
-    hidden_neurons dq 64
+    hidden_neurons dq 3
     hidden_layers dq 1
     output_neurons dq 1
 
     ; @data: MLP Training
 
     epochs dq 10000
-    learning_rate dd 0.01
-    enable_dropout dd 1
-    dropout_rate dd 0.1
+    learning_rate dd 0.2
+    enable_dropout dd 0
+    dropout_rate dd 0.0
 
     ; @data: SGD Settings
 

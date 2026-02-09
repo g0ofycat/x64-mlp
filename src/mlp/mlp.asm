@@ -17,11 +17,14 @@ section .text
     global mlp_train
     global mlp_back_propagation
 
+    global mlp_forward_layer
+    global mlp_backward_layer
+
 ; =============== PUBLIC LABELS ===============
 
 ; =============== mlp_feed_forward ===============
 
-; @function mlp_feed_forward: Feed forward pass through one layer
+; @function mlp_feed_forward: Feed forward pass through the network
 ; @param: rcx - Input tensor pointer
 ; @param: rdx - Weight tensor pointer
 ; @param: r8 - Bias tensor pointer
@@ -34,7 +37,6 @@ section .text
 ; @return: rax - Pointer to output tensor
 mlp_feed_forward:
     push rbp
-
     mov rbp, rsp
 
     push rbx
@@ -103,7 +105,7 @@ mlp_feed_forward:
 
     xor r8, r8               ; j = 0
 
-; @function .j_loop_simd: Loop through current row
+; @function .j_loop_simd: Loop through current row and SIMD scalar mult (4 SIMD)
 .j_loop_simd:
     mov rax, r11
     sub rax, r8
@@ -177,7 +179,7 @@ mlp_feed_forward:
 
     call softmax
 
-; @function .done: Label when Feed Forward is done
+; @function .done: Label when mlp_feed_forward is done
 .done:
     mov rax, r15
 
@@ -300,7 +302,7 @@ mlp_train:
     dec rbx
     jnz .epoch_loop
 
-; @function .done: Label when training is done
+; @function .done: Label when mlp_train is done
 .done:
     mov rax, [rbp + 64]
     mov rdx, [rbp + 72]
@@ -390,6 +392,251 @@ mlp_back_propagation:
 
     mov rax, [rbp + 88]
     mov rdx, [rbp + 72]
+
+    add rsp, 72
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+
+    ret
+
+; =============== mlp_forward_layer ===============
+
+; @function mlp_forward_layer: Forward pass for one hidden layer (No softmax)
+; @param: rcx - Input tensor pointer
+; @param: rdx - Weight tensor pointer
+; @param: r8 - Bias tensor pointer
+; @param: r9 - Output tensor pointer (pre-allocated)
+; @param: [rbp+40] - Batch size
+; @param: [rbp+48] - Input neurons
+; @param: [rbp+56] - Output neurons
+; @param: [rbp+64] - Apply dropout (0 or 1)
+; @param: [rbp+72] - Dropout rate
+; @return: rax - Pointer to output tensor
+mlp_forward_layer:
+    push rbp
+    mov rbp, rsp
+
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+
+    sub rsp, 88
+
+    mov r12, rcx
+    mov r13, rdx
+    mov r14, r8
+    mov r15, r9
+
+    mov rbx, [rbp + 56]     ; batch size
+    mov r10, [rbp + 64]     ; input_neurons
+    mov r11, [rbp + 72]     ; output_neurons
+
+    xor rsi, rsi
+
+; @function .row_loop: Apply activation to each row
+.row_loop:
+    cmp rsi, rbx
+    jge .apply_relu
+
+    mov rax, rsi
+    imul rax, r11
+    lea rdi, [r15, rax*4]
+
+    xor r8, r8
+
+; @function .bias_fill: Fill bias based on output columns
+.bias_fill:
+    cmp r8, r11
+    jge .start_k_loop
+
+    movss xmm0, [r14 + r8*4]
+    movss [rdi + r8*4], xmm0
+
+    inc r8
+    jmp .bias_fill
+
+; @function .start_k_loop: xor rcx
+.start_k_loop:
+    xor rcx, rcx
+
+; @function .k_loop: Loop through current column
+.k_loop:
+    cmp rcx, r10
+    jge .next_row
+
+    mov rax, rsi
+    imul rax, r10
+    add rax, rcx
+
+    movss xmm0, [r12 + rax*4]
+    shufps xmm0, xmm0, 0
+
+    mov rax, rcx
+    imul rax, r11
+    lea rdx, [r13 + rax*4]
+
+    xor r8, r8
+
+; @function .j_loop_simd: Loop through current row and SIMD scalar mult (4 SIMD)
+.j_loop_simd:
+    mov rax, r11
+    sub rax, r8
+
+    cmp rax, 4
+    jl .j_loop_scalar
+
+    movups xmm1, [rdx + r8*4]
+    movups xmm2, [rdi + r8*4]
+
+    mulps xmm1, xmm0
+    addps xmm2, xmm1
+
+    movups [rdi + r8*4], xmm2
+
+    add r8, 4
+    jmp .j_loop_simd
+
+; @function .j_loop_scalar: Scalar mult
+.j_loop_scalar:
+    cmp r8, r11
+    jge .next_k
+
+    movss xmm1, [rdx + r8*4]
+    mulss xmm1, xmm0
+    addss xmm1, [rdi + r8*4]
+    movss [rdi + r8*4], xmm1
+
+    inc r8
+    jmp .j_loop_scalar
+
+; @function .next_k: Jump to the next column
+.next_k:
+    inc rcx
+    jmp .k_loop
+
+; @function .next_row: Jump to the next row
+.next_row:
+    inc rsi
+    jmp .row_loop
+
+; @function .apply_activation: Apply activation function
+.apply_relu:
+    mov rcx, r15
+    mov rax, rbx
+    imul rax, r11
+    mov r8, rax
+
+    call relu
+
+    cmp qword [rbp + 80], 0
+    je .done
+
+    mov rcx, r15
+    mov rax, rbx
+    imul rax, r11
+    mov r8, rax
+
+    movss xmm0, [rbp + 88]
+
+    call apply_dropout
+
+; @function .done: Label when mlp_forward_layer is done
+.done:
+    mov rax, r15
+
+    add rsp, 88
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    pop rbp
+
+    ret
+
+; =============== mlp_backward_layer ===============
+
+; @function mlp_backward_layer: Backward pass for one hidden layer
+; @param: rcx - Input activations (from previous layer)
+; @param: rdx - Current layer activations (for relu_derivative)
+; @param: r8 - Delta from next layer
+; @param: r9 - Weights of next layer
+; @param: [rbp+40] - Batch size
+; @param: [rbp+48] - Input neurons (this layer)
+; @param: [rbp+56] - Output neurons (next layer)
+; @param: [rbp+64] - Weight gradient buffer (this layer)
+; @param: [rbp+72] - Bias gradient buffer (this layer)
+; @param: [rbp+80] - Delta buffer (this layer, OUTPUT)
+; @return: rax - Pointer to this layer's delta
+mlp_backward_layer:
+    push rbp
+    mov rbp, rsp
+
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+
+    sub rsp, 72
+
+    mov [rbp - 8], rcx      ; input activations
+    mov [rbp - 16], rdx     ; current activations
+    mov [rbp - 24], r8      ; next delta
+    mov [rbp - 32], r9      ; next weights
+
+    mov rcx, r8             ; next delta
+    mov rdx, r9             ; next weights
+    mov r8, [rbp + 80]      ; this delta (output)
+    mov r9, [rbp + 40]      ; batch size
+    
+    mov rax, [rbp + 48]
+    mov [rsp + 32], rax     ; input neurons
+    mov rax, [rbp + 56]
+    mov [rsp + 40], rax     ; output neurons
+    
+    call compute_hidden_error
+
+    mov rcx, [rbp - 16]     ; current activations
+    mov rdx, [rbp + 80]     ; this delta
+    mov rax, [rbp + 40]
+    imul rax, [rbp + 48]
+    mov r8, rax             ; batch * neurons
+    
+    call relu_derivative
+
+    mov rcx, [rbp - 8]      ; input activations
+    mov rdx, [rbp + 80]     ; this delta
+    mov r8, [rbp + 64]      ; weight gradients
+    mov r9, [rbp + 40]      ; batch size
+    
+    mov rax, [rbp + 48]
+    mov [rsp + 32], rax     ; input neurons
+    mov rax, [rbp + 48]
+    mov [rsp + 40], rax     ; output neurons (same for hidden)
+    
+    call compute_weight_gradients
+
+    mov rcx, [rbp + 80]     ; this delta
+    mov rdx, [rbp + 72]     ; bias gradients
+    mov r8, [rbp + 40]      ; batch size
+    mov r9, [rbp + 48]      ; neurons
+    
+    call compute_bias_gradients
+
+    mov rax, [rbp + 80]     ; return delta pointer
 
     add rsp, 72
 
@@ -559,7 +806,7 @@ compute_bias_gradients:
     inc rbx
     jmp .neuron_loop
 
-; @function .done: When compute_bias_gradients is done
+; @function .done: Label when compute_bias_gradients is done
 .done:
     pop rsi
     pop rbx
@@ -621,9 +868,6 @@ compute_hidden_error:
     xorps xmm0, xmm0
 
     xor rdi, rdi           ; j = 0 (output neurons)
-
-    inc rbx
-    jmp .in_loop
 
 ; @function .out_loop_simd: SIMD Dot Product Calculation (4 SIMD)
 .out_loop_simd:

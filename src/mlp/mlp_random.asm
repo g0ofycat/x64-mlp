@@ -95,7 +95,7 @@ apply_dropout:
     inc rbx
     jmp .loop
 
-; @function .done: Label when dropout is done
+; @function .done: Label when apply_dropout is done
 .done:
     add rsp, 64
 

@@ -28,7 +28,7 @@ extern exit
 section .data
     input_tensor dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
 
-    test_tensor dd 1.0, 0.0
+    test_tensor dd 1.0, 1.0
 
     target_tensor dd 0.0, 1.0, 1.0, 0.0
 
