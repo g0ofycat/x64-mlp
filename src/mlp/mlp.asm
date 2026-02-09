@@ -436,9 +436,9 @@ mlp_forward_layer:
     mov r14, r8
     mov r15, r9
 
-    mov rbx, [rbp + 56]     ; batch size
-    mov r10, [rbp + 64]     ; input_neurons
-    mov r11, [rbp + 72]     ; output_neurons
+    mov rbx, [rbp + 72]     ; batch size
+    mov r10, [rbp + 80]     ; input_neurons
+    mov r11, [rbp + 88]     ; output_neurons
 
     xor rsi, rsi
 
@@ -537,7 +537,7 @@ mlp_forward_layer:
 
     call relu
 
-    cmp qword [rbp + 80], 0
+    cmp qword [rbp + 96], 0
     je .done
 
     mov rcx, r15
@@ -545,7 +545,7 @@ mlp_forward_layer:
     imul rax, r11
     mov r8, rax
 
-    movss xmm0, [rbp + 88]
+    movss xmm0, [rbp + 104]
 
     call apply_dropout
 
@@ -584,67 +584,57 @@ mlp_backward_layer:
     push rbp
     mov rbp, rsp
 
-    push rbx
     push r12
     push r13
-    push r14
-    push r15
 
-    sub rsp, 72
+    sub rsp, 40
 
-    mov [rbp - 8], rcx      ; input activations
-    mov [rbp - 16], rdx     ; current activations
-    mov [rbp - 24], r8      ; next delta
-    mov [rbp - 32], r9      ; next weights
+    mov r12, rcx               ; input activations
+    mov r13, rdx               ; current activations
 
-    mov rcx, r8             ; next delta
-    mov rdx, r9             ; next weights
-    mov r8, [rbp + 80]      ; this delta (output)
-    mov r9, [rbp + 40]      ; batch size
-    
-    mov rax, [rbp + 48]
-    mov [rsp + 32], rax     ; input neurons
-    mov rax, [rbp + 56]
-    mov [rsp + 40], rax     ; output neurons
-    
+    mov rcx, r8                ; next delta
+    mov rdx, r9                ; next weights
+    mov r8,  [rbp + 96]        ; this delta (output)
+    mov r9,  [rbp + 56]        ; batch size
+
+    mov rax, [rbp + 64]        ; neurons
+    mov [rsp + 48], rax        ; input neurons
+    mov [rsp + 56], rax        ; output neurons
+
     call compute_hidden_error
 
-    mov rcx, [rbp - 16]     ; current activations
-    mov rdx, [rbp + 80]     ; this delta
-    mov rax, [rbp + 40]
-    imul rax, [rbp + 48]
-    mov r8, rax             ; batch * neurons
-    
+    mov rcx, r13               ; activations
+    mov rdx, [rbp + 96]        ; this delta
+    mov rax, [rbp + 56]
+    imul rax, [rbp + 64]
+    mov r8, rax                ; batch * neurons
+
     call relu_derivative
 
-    mov rcx, [rbp - 8]      ; input activations
-    mov rdx, [rbp + 80]     ; this delta
-    mov r8, [rbp + 64]      ; weight gradients
-    mov r9, [rbp + 40]      ; batch size
-    
-    mov rax, [rbp + 48]
-    mov [rsp + 32], rax     ; input neurons
-    mov rax, [rbp + 48]
-    mov [rsp + 40], rax     ; output neurons (same for hidden)
-    
+    mov rcx, r12               ; input activations
+    mov rdx, [rbp + 96]        ; this delta
+    mov r8, [rbp + 80]         ; weight gradients
+    mov r9, [rbp + 56]         ; batch size
+
+    mov rax, [rbp + 64]
+    mov [rsp + 48], rax        ; input neurons
+    mov [rsp + 56], rax        ; output neurons
+
     call compute_weight_gradients
 
-    mov rcx, [rbp + 80]     ; this delta
-    mov rdx, [rbp + 72]     ; bias gradients
-    mov r8, [rbp + 40]      ; batch size
-    mov r9, [rbp + 48]      ; neurons
-    
+    mov rcx, [rbp + 96]        ; this delta
+    mov rdx, [rbp + 88]        ; bias gradients
+    mov r8, [rbp + 56]         ; batch size
+    mov r9, [rbp + 64]         ; neurons
+
     call compute_bias_gradients
 
-    mov rax, [rbp + 80]     ; return delta pointer
+    mov rax, [rbp + 96]        ; return delta
 
-    add rsp, 72
+    add rsp, 40
 
-    pop r15
-    pop r14
     pop r13
     pop r12
-    pop rbx
     pop rbp
 
     ret
