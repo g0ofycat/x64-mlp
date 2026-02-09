@@ -330,7 +330,7 @@ mlp_train:
 ; @param: [rbp+72] - Pointer to the specific bias tensor (bias_base_ptr)
 ; @param: [rbp+80] - Pointer to the specific gradient block (grad_base_ptr)
 ; @param: [rbp+88] - Pointer to the weight tensor for this layer
-; @param: [rbp+96] - Pointer to the previous delta buffer (to propagate error)
+; @param: [rbp+96] - Pointer to the previous delta buffer
 ; @return: rax - Pointer to the updated weight tensor
 ; @return: rdx - Pointer to the updated bias tensor
 mlp_back_propagation:

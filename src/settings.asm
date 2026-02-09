@@ -14,10 +14,10 @@ section .data
 
     ; @data: MLP Architecture
 
-    input_neurons dq 8
+    input_neurons dq 2
     hidden_neurons dq 64
     hidden_layers dq 1
-    output_neurons dq 4
+    output_neurons dq 1
 
     ; @data: MLP Training
 
@@ -28,7 +28,7 @@ section .data
 
     ; @data: SGD Settings
 
-    batch_size dq 1
+    batch_size dq 4
 
 ; @section: Training Buffers
 section .bss

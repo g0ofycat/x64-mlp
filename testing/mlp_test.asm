@@ -28,6 +28,8 @@ extern exit
 section .data
     input_tensor dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
 
+    test_tensor dd 1.0, 0.0
+
     target_tensor dd 0.0, 1.0, 1.0, 0.0
 
     fmt_output db "Output[%d] = %.4f", 10, 0
@@ -90,7 +92,7 @@ main:
     mov r14, rax                ; trained weights
     mov r15, rdx                ; trained biases
 
-    lea rcx, [input_tensor]
+    lea rcx, [test_tensor]
     mov rdx, r14                ; trained weights
     mov r8, r15                 ; trained biases
     lea r9, [output_tensor]
