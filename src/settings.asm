@@ -38,8 +38,18 @@ section .bss
     global bias_base_ptr
     global grad_base_ptr
 
+    global acts_buffer
+    global delta_buffer
+
+    global output_tensor
+
     ; @data: Buffers
 
     weight_base_ptr resd 16777216
     bias_base_ptr resd 16777216
     grad_base_ptr resd 16777216
+
+    acts_buffer resd 16777216
+    delta_buffer resd 16777216
+
+    output_tensor resd 256

@@ -19,6 +19,11 @@ extern weight_base_ptr
 extern bias_base_ptr
 extern grad_base_ptr
 
+extern acts_buffer
+extern delta_buffer 
+
+extern output_tensor
+
 extern init_random
 extern init_params
 
@@ -33,9 +38,6 @@ section .data
     target_tensor dd 0.0, 1.0, 1.0, 0.0
 
     fmt_output db "Output[%d] = %.4f", 10, 0
-
-section .bss
-    output_tensor resd 4
 
 section .text
     global main
@@ -64,50 +66,30 @@ main:
     mov r14, rax                ; weight tensor
     mov r15, r11                ; bias tensor
 
-    lea rcx, [input_tensor]
-    lea rdx, [target_tensor]
-    mov r8, [batch_size]
-    mov r9, [input_neurons]
-
-    mov rax, [output_neurons]
-    mov [rsp + 40], rax         ; output_neurons
-
-    mov [rsp + 48], r14         ; weight tensor
-    mov [rsp + 56], r15         ; bias tensor
-
-    lea rax, [grad_base_ptr]
-    mov [rsp + 64], rax         ; grad_base_ptr
-    lea rax, [output_tensor]
-    mov [rsp + 72], rax         ; delta buffer
-    mov rax, [epochs]
-    mov [rsp + 80], rax         ; epochs
-    movss xmm0, [learning_rate]
-    movss [rsp + 88], xmm0      ; learning_rate
-    mov rax, [enable_dropout]
-    mov [rsp + 96], rax         ; enable_dropout
-    movss xmm0, [dropout_rate]
-    movss [rsp + 104], xmm0     ; dropout_rate
-    call mlp_train 
-
-    mov r14, rax                ; trained weights
-    mov r15, rdx                ; trained biases
-
     lea rcx, [test_tensor]
     mov rdx, r14                ; trained weights
     mov r8, r15                 ; trained biases
-    lea r9, [output_tensor]
+    lea r9, [acts_buffer]
 
     mov rax, [batch_size]
     mov [rsp + 40], rax
     mov rax, [input_neurons]
     mov [rsp + 48], rax
-    mov rax, [output_neurons]
+    mov rax, [hidden_neurons]
     mov [rsp + 56], rax
-    mov rax, 0                  ; enable_dropout
+    mov rax, [hidden_layers]
     mov [rsp + 64], rax
+    mov rax, [output_neurons]
+    mov [rsp + 72], rax
+    mov qword [rsp + 80], 0     ; disable dropout
     movss xmm0, [dropout_rate]
-    movss [rsp + 72], xmm0
+    movss [rsp + 88], xmm0
     call mlp_feed_forward
+
+    mov ecx, [output_neurons]
+    mov rsi, rax
+    lea rdi, [output_tensor]
+    rep movsd
 
     xor r12, r12
     mov rbx, [output_neurons]

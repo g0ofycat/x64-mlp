@@ -31,166 +31,127 @@ section .text
 ; @param: r9 - Output tensor pointer (pre-allocated)
 ; @param: [rbp+40] - Input rows (batch size)
 ; @param: [rbp+48] - Input columns (input neurons)
-; @param: [rbp+56] - Output columns (output neurons)
-; @param: [rbp+64] - Apply dropout (0 or 1)
-; @param: [rbp+72] - If dropout, dropout rate
+; @param: [rbp+56] - Amount of hidden neurons per layer
+; @param: [rbp+64] - Amount of hidden layers
+; @param: [rbp+72] - Output columns (output neurons)
+; @param: [rbp+80] - Apply dropout (0 or 1)
+; @param: [rbp+88] - If dropout, dropout rate
 ; @return: rax - Pointer to output tensor
 mlp_feed_forward:
     push rbp
     mov rbp, rsp
 
     push rbx
-    push rsi
-    push rdi
     push r12
     push r13
     push r14
     push r15
 
-    sub rsp, 88
+    sub rsp, 104
 
-    mov r12, rcx            ; input pointer
-    mov r13, rdx            ; weight pointer
-    mov r14, r8             ; bias pointer
-    mov r15, r9             ; output pointer
+    mov r12, rcx                  ; input pointer
+    mov r13, rdx                  ; weight pointer
+    mov r14, r8                   ; bias pointer
+    mov r15, r9                   ; output pointer
 
-    mov rbx, [rbp + 56]     ; input_rows (batch size)
-    mov r10, [rbp + 64]     ; input_cols
-    mov r11, [rbp + 72]     ; output_cols
+    mov rbx, [rbp + 80]           ; hidden layers
 
-    xor rsi, rsi            ; i = 0
+    xor rsi, rsi                  ; layer index = 0
+    mov rdx, r12                  ; acts_prev = input
 
-; @function .row_loop: Apply activation to each row
-.row_loop:
+; @function .loop_layers: Check current layer index and see if first index
+.loop_layers:
     cmp rsi, rbx
-    jge .apply_activation
+    jge .output_layer
 
+    mov r8, [rbp + 64]            ; input neurons
+
+    test rsi, rsi
+    jne .not_first
+
+    jmp .in_set
+
+; @function .not_first: r8 = hidden neurons
+.not_first:
+    mov r8, [rbp + 72]            ; hidden neurons
+
+; @function .in_set: r9 = hidden neurons
+.in_set:
+    mov r9, [rbp + 72]            ; hidden neurons
+
+; @function .out_set: mlp_forward_layer loop
+.out_set:
     mov rax, rsi
+    imul rax, [rbp + 72]          ; layer * hidden_neurons
+    imul rax, [rbp + 56]          ; * batch_size
+    lea rax, [r15 + rax * 4]
 
-    imul rax, r11
-    lea rdi, [r15, rax*4]
+    mov [rsp + 32], r8            ; in_neurons
+    mov [rsp + 40], r9            ; out_neurons
+    mov [rsp + 48], rax           ; acts_curr
 
-    xor r8, r8                ; j = 0
+    mov rcx, rdx                  ; acts_prev
+    mov rdx, r13                  ; weights
+    mov r8, r14                   ; biases
+    mov r9, rax                   ; acts_curr
 
-; @function .bias_fill: Fill bias based on output columns
-.bias_fill:
-    cmp r8, r11
-    jge .start_k_loop
+    mov rax, [rbp + 56]
+    mov [rsp + 56], rax           ; batch size
+    mov rax, [rsp + 32]
+    mov [rsp + 64], rax           ; in_neurons
+    mov rax, [rsp + 40]
+    mov [rsp + 72], rax           ; out_neurons
+    mov rax, [rbp + 96]
+    mov [rsp + 80], rax           ; dropout enabled
+    movss xmm0, [rbp + 104]
+    movss [rsp + 88], xmm0        ; dropout_rate
 
-    movss xmm0, [r14 + r8*4]
-    movss [rdi + r8*4], xmm0
+    call mlp_forward_layer
 
-    inc r8
-    jmp .bias_fill
+    mov r8, [rsp + 32]            ; restore in_neurons
+    mov r9, [rsp + 40]            ; restore out_neurons
+    mov rax, r8
+    imul rax, r9
 
-; @function .start_k_loop: xor rcx
-.start_k_loop:
-    xor rcx, rcx              ; k = 0
+    lea r13, [r13 + rax * 4]      ; next weight block
+    lea r14, [r14 + r9 * 4]       ; next bias block
 
-; @function .k_loop: Loop through current column
-.k_loop:
-    cmp rcx, r10
-    jge .next_row
-
-    mov rax, rsi
-    imul rax, r10
-    add rax, rcx
-
-    movss xmm0, [r12 + rax*4]
-    shufps xmm0, xmm0, 0
-
-    mov rax, rcx
-    imul rax, r11
-    lea rdx, [r13 + rax*4]
-
-    xor r8, r8               ; j = 0
-
-; @function .j_loop_simd: Loop through current row and SIMD scalar mult (4 SIMD)
-.j_loop_simd:
-    mov rax, r11
-    sub rax, r8
-
-    cmp rax, 4
-    jl .j_loop_scalar
-
-    movups xmm1, [rdx + r8*4]
-    movups xmm2, [rdi + r8*4]
-
-    mulps xmm1, xmm0
-    addps xmm2, xmm1
-
-    movups [rdi + r8*4], xmm2
-
-    add r8, 4
-    jmp .j_loop_simd
-
-; @function .j_loop_scalar: Scalar mult
-.j_loop_scalar:
-    cmp r8, r11
-    jge .next_k
-
-    movss xmm1, [rdx + r8*4]
-    mulss xmm1, xmm0
-    addss xmm1, [rdi + r8*4]
-    movss [rdi + r8*4], xmm1
-
-    inc r8
-    jmp .j_loop_scalar
-
-; @function .next_k: Jump to the next column
-.next_k:
-    inc rcx
-    jmp .k_loop
-
-; @function .next_row: Jump to the next row
-.next_row:
+    mov rdx, [rsp + 48]           ; acts_prev = acts_curr
     inc rsi
-    jmp .row_loop
+    jmp .loop_layers 
 
-; @function .apply_activation: Apply activation function
-.apply_activation:
-    mov rcx, r15            ; output pointer
-    mov rax, rbx
-    imul rax, r11           ; total elements
-    mov r8, rax             ; len
+; @function .output_layer: Softmax and return when mlp_feed_forward is done
+.output_layer:
+    mov rcx, rdx                  ; acts_prev (last hidden layer)
+    mov rdx, r13                  ; weights (current position)
+    mov r8, r14                   ; biases (current position)
+    mov r9, r15                   ; output buffer
 
-    call relu
+    mov rax, [rbp + 56]
+    mov [rsp + 56], rax
+    mov rax, [rbp + 72]
+    mov [rsp + 64], rax
+    mov rax, [rbp + 88]
+    mov [rsp + 72], rax
+    mov qword [rsp + 80], 0 
+    movss xmm0, [rbp + 104]
+    movss [rsp + 88], xmm0
 
-    cmp qword [rbp + 80], 0
-    je .do_softmax
+    call mlp_forward_layer
 
-    mov rcx, r15
-    mov rax, rbx
-
-    imul rax, r11
-
-    mov r8, rax
-
-    movss xmm0, [rbp + 88]
-
-    call apply_dropout
-
-; @function .do_softmax: Do softmax on r15
-.do_softmax:
-    mov rcx, r15
-    mov rdx, r15
-
-    mov r8, r11
-
+    mov rcx, r15                  ; output buffer
+    mov rdx, r15                  ; output buffer (in-place)
+    mov r8, [rbp + 88]            ; output neurons
     call softmax
 
-; @function .done: Label when mlp_feed_forward is done
-.done:
     mov rax, r15
 
-    add rsp, 88
+    add rsp, 104
 
     pop r15
     pop r14
     pop r13
     pop r12
-    pop rdi
-    pop rsi
     pop rbx
     pop rbp
 
