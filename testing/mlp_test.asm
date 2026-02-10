@@ -67,8 +67,8 @@ main:
     mov r15, r11                ; bias tensor
 
     lea rcx, [test_tensor]
-    mov rdx, r14                ; trained weights
-    mov r8, r15                 ; trained biases
+    mov rdx, r14
+    mov r8, r15
     lea r9, [acts_buffer]
 
     mov rax, [batch_size]
