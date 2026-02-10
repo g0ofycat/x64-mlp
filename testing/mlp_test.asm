@@ -19,10 +19,10 @@ extern weight_base_ptr
 extern bias_base_ptr
 extern grad_base_ptr
 
-extern acts_buffer
+extern activation_buffer
 extern delta_buffer 
 
-extern output_tensor
+extern output_buffer
 
 extern init_random
 extern init_params
@@ -66,10 +66,47 @@ main:
     mov r14, rax                ; weight tensor
     mov r15, r11                ; bias tensor
 
+    lea rcx, [input_tensor]
+    lea rdx, [target_tensor]
+    mov r8, [batch_size]
+    mov r9, [input_neurons]
+
+    mov rax, [hidden_neurons]
+    mov [rsp + 40], rax
+
+    mov rax, [hidden_layers]
+    mov [rsp + 48], rax
+    mov rax, [output_neurons]
+    mov [rsp + 56], rax
+
+    mov [rsp + 64], r14
+    mov [rsp + 72], r15
+    mov rax, [weight_base_ptr]
+    mov [rsp + 80], rax
+    mov rax, [bias_base_ptr]
+    mov [rsp + 88], rax
+    mov rax, [activation_buffer]
+    mov [rsp + 96], rax
+    mov rax, [delta_buffer]
+    mov [rsp + 104], rax
+    movss xmm0, [epochs]
+    movss [rsp + 112], xmm0
+    movss xmm0, [learning_rate]
+    movss [rsp + 120], xmm0
+    movss xmm0, [enable_dropout]
+    movss [rsp + 128], xmm0
+    movss xmm0, [dropout_rate]
+    movss [rsp + 136], xmm0
+
+    call mlp_train 
+
+    mov r14, rax                ; trained weights
+    mov r15, rdx                ; trained biases
+
     lea rcx, [test_tensor]
     mov rdx, r14
     mov r8, r15
-    lea r9, [acts_buffer]
+    lea r9, [activation_buffer]
 
     mov rax, [batch_size]
     mov [rsp + 40], rax
@@ -81,14 +118,14 @@ main:
     mov [rsp + 64], rax
     mov rax, [output_neurons]
     mov [rsp + 72], rax
-    mov qword [rsp + 80], 0     ; disable dropout
+    mov dword [rsp + 80], 0     ; disable dropout
     movss xmm0, [dropout_rate]
     movss [rsp + 88], xmm0
     call mlp_feed_forward
 
     mov ecx, [output_neurons]
     mov rsi, rax
-    lea rdi, [output_tensor]
+    lea rdi, [output_buffer]
     rep movsd
 
     xor r12, r12
@@ -100,7 +137,7 @@ main:
 
     lea rcx, [fmt_output]
     mov rdx, r12
-    lea rax, [output_tensor]
+    lea rax, [output_buffer]
     movss xmm0, [rax + r12*4]
     cvtss2sd xmm0, xmm0
     call printf
