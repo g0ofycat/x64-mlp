@@ -14,7 +14,7 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 
 - **LINKER DRIVER:** gcc 15.2.0
 
-### Specs
+## Specs
 
 **CPU:** AMD Ryzen 5 8640HS (6 cores / 12 threads) w/ Radeon 760M Graphics (3.5 GHz Frequency, ~0.286 ns / cpu cycle)
 
