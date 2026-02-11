@@ -23,7 +23,7 @@ section .data
 
     epochs dq 10000
     learning_rate dd 0.2
-    enable_dropout dd 0
+    enable_dropout dq 0
     dropout_rate dd 0.0
 
     ; @data: SGD Settings

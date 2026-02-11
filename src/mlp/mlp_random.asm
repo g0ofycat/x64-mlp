@@ -172,11 +172,13 @@ init_params:
 
     mov rdi, r14
 
-    mov rax, [rbp - 8]
     mov rcx, rdi
 
     mov rdx, [rbp - 8]
     imul rdx, [rbp - 16]
+
+    mov rax, [rbp - 8]
+
     call .he_fill
 
     mov rax, [rbp - 8]
@@ -241,7 +243,7 @@ init_params:
 
 ; =============== INTERNAL HELPERS ===============
 
-; @function .he_fill: Fill a buffer with He Uniform distribution
+; @function .he_fill: Fill a buffer with He Uniform distribution (in-place)
 ; @param rcx - Buffer pointer
 ; @param rdx - Element count
 ; @param rax - fan_in (for limit calculation)

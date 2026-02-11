@@ -54,7 +54,7 @@ relu:
 
 ; =============== relu_derivative ===============
 
-; @function relu_derivative; ReLU Derivative (in-place)
+; @function relu_derivative: ReLU Derivative (in-place)
 ; @param rcx - Pointer to original output (forward pass)
 ; @param rdx - Pointer to gradients (to be modified in-place)
 ; @param r8 - Array Length
@@ -105,8 +105,9 @@ relu_derivative:
 
 ; =============== softmax ===============
 
-; @function softmax: Softmax activaton function (in-place)
+; @function softmax: Softmax activaton function
 ; @param: rcx - Pointer to input array
+; @param: rdx - Pointer to output array
 ; @param: r8 - Array length
 softmax:
     push rbx

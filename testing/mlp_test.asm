@@ -89,15 +89,14 @@ main:
     mov [rsp + 96], rax
     mov rax, [delta_buffer]
     mov [rsp + 104], rax
-    movss xmm0, [epochs]
-    movss [rsp + 112], xmm0
+    mov rax, [epochs]
+    mov [rsp + 112], rax
     movss xmm0, [learning_rate]
     movss [rsp + 120], xmm0
-    movss xmm0, [enable_dropout]
-    movss [rsp + 128], xmm0
+    mov rax, [enable_dropout]
+    mov [rsp + 128], rax
     movss xmm0, [dropout_rate]
     movss [rsp + 136], xmm0
-
     call mlp_train 
 
     mov r14, rax                ; trained weights
