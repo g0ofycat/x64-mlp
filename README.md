@@ -21,3 +21,11 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 **RAM:** 8 GB DDR5
 
 **GPU:** AMD Radeon 760M Graphics
+
+**todo:**
+
+- theres probably like 1 garabage register im reading which is why its fucking everything up
+
+- why isnt it printing cel
+
+- ensure it works on the xor issue so i can rest in peace
