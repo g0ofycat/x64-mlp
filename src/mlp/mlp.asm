@@ -703,9 +703,9 @@ mlp_forward_layer:
     mov r14, r8
     mov r15, r9
 
-    mov rbx, [rbp + 56]     ; batch size
-    mov r10, [rbp + 64]     ; input_neurons
-    mov r11, [rbp + 72]     ; output_neurons
+    mov rbx, [rbp + 72]     ; batch size
+    mov r10, [rbp + 80]     ; input_neurons
+    mov r11, [rbp + 88]     ; output_neurons
 
     xor rsi, rsi            ; i = 0
 
@@ -804,7 +804,7 @@ mlp_forward_layer:
 
     call relu
 
-    cmp qword [rbp + 80], 0
+    cmp qword [rbp + 96], 0
     je .done
 
     mov rcx, r15
@@ -812,7 +812,8 @@ mlp_forward_layer:
     imul rax, r11
     mov r8, rax
 
-    movss xmm0, [rbp + 88]
+    movss xmm0, [rbp + 104]
+
     call apply_dropout
 
 ; @function .done: Label when mlp_forward_layer is done
