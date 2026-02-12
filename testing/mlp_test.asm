@@ -137,12 +137,13 @@ main:
     lea rcx, [fmt_output]
     mov rdx, r12
     lea rax, [output_buffer]
-    movss xmm0, [rax + r12*4]
-    cvtss2sd xmm0, xmm0
+    movss xmm2, [rax + r12*4]
+    cvtss2sd xmm2, xmm2
+    movq r8, xmm2
     call printf
 
     inc r12
-    jmp .print_loop
+    jmp .print_loop 
 
 .done:
     add rsp, 144
