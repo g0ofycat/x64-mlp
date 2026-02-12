@@ -21,7 +21,3 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 **RAM:** 8 GB DDR5
 
 **GPU:** AMD Radeon 760M Graphics
-
-**todo:**
-
-- test all functions in mlp_random and math_lib 

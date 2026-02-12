@@ -9,12 +9,12 @@ extern malloc
 
 ; @section: Data for apply_dropout
 section .data
-    one_f dd 1.0
-    two_f dd 2.0
-    six_f dd 6.0
+    one_f: dd 1.0
+    two_f: dd 2.0
+    six_f: dd 6.0
 
-    rand_max_float dd 32767.0       ; at least on cpp im pretty sure this is the lowest constant
-    min_keep dd 0.00001
+    rand_max_float: dd 32767.0       ; at least on cpp im pretty sure this is the lowest constant
+    min_keep: dd 0.00001
 
 ; @section: Global labels
 section .text

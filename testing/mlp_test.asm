@@ -15,8 +15,8 @@ extern mlp_feed_forward
 extern mlp_train
 extern mlp_back_propagation
 
-extern weight_base_ptr
-extern bias_base_ptr
+extern weight_grad_base_ptr
+extern bias_grad_base_ptr
 extern grad_base_ptr
 
 extern activation_buffer
@@ -31,13 +31,13 @@ extern printf
 extern exit
 
 section .data
-    input_tensor dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
+    input_tensor: dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
 
-    test_tensor dd 1.0, 1.0
+    test_tensor: dd 1.0, 1.0
 
-    target_tensor dd 0.0, 1.0, 1.0, 0.0
+    target_tensor: dd 0.0, 1.0, 1.0, 0.0
 
-    fmt_output db "Output[%d] = %.4f", 10, 0
+    fmt_output: db "Output[%d] = %.4f", 10, 0
 
 section .text
     global main
@@ -81,9 +81,9 @@ main:
 
     mov [rsp + 64], r14
     mov [rsp + 72], r15
-    mov rax, [weight_base_ptr]
+    mov rax, [weight_grad_base_ptr]
     mov [rsp + 80], rax
-    mov rax, [bias_base_ptr]
+    mov rax, [bias_grad_base_ptr]
     mov [rsp + 88], rax
     mov rax, [activation_buffer]
     mov [rsp + 96], rax
