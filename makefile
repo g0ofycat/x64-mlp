@@ -32,7 +32,7 @@ $(OBJDIR):
 	@if not exist $(OBJDIR) mkdir $(OBJDIR)
 
 $(TARGET): $(OBJS)
-	$(LD) $(LDFLAGS) -Wl,-e,main -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $^
 
 $(OBJDIR)/%.obj: $(SRCDIR)/%.asm
 	$(AS) $(ASFLAGS) $< -o $@

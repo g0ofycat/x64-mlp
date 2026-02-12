@@ -24,8 +24,4 @@ Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64
 
 **todo:**
 
-- theres probably like 1 garabage register im reading which is why its fucking everything up
-
-- why isnt it printing cel
-
-- ensure it works on the xor issue so i can rest in peace
+- test all functions in mlp_random and math_lib 

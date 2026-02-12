@@ -6,7 +6,6 @@ extern rand
 extern srand
 extern time
 extern malloc
-extern sqrtss
 
 ; @section: Data for apply_dropout
 section .data
@@ -61,6 +60,7 @@ apply_dropout:
     movss xmm2, [one_f]
     subss xmm2, xmm0    ; keep_prob = 1 - dropout_rate
     maxss xmm2, [min_keep]
+    movss [rsp + 40], xmm2
 
     xor rbx, rbx        ; i = 0
 
@@ -70,9 +70,12 @@ apply_dropout:
     jge .done
 
     call rand               ; eax = random int
+
+    and eax, 0x7FFF
     cvtsi2ss xmm0, eax      ; eax to float
-    movss xmm1, [rand_max_float]
-    divss xmm0, xmm1
+    divss xmm0, [rand_max_float]
+
+    movss xmm2, [rsp + 40]
 
     comiss xmm0, xmm2
     ja .drop
@@ -87,7 +90,7 @@ apply_dropout:
 
 ; @function .drop: Drop current neuron
 .drop:
-    xorps xmm0, xmm0
+    pxor xmm0, xmm0
     movss [r12 + rbx*4], xmm0
 
 ; @function .next: Jump to the next neuron
@@ -251,23 +254,25 @@ init_params:
     push rbx
     push r12
     push r13
+    push r14
 
-    sub rsp, 48
+    sub rsp, 56
 
     mov rbx, rcx
     mov r12, rdx
+    mov r13, rax
 
-    cvtsi2ss xmm0, rax
+    cvtsi2ss xmm0, r13
     movss xmm1, [six_f]
     divss xmm1, xmm0
-    sqrtss xmm0, xmm1
+    sqrtss xmm0, xmm1 
     movss [rsp + 40], xmm0
 
-    xor r13, r13
+    xor r14, r14
 
 ; @function .f_loop: Loop to generate random floats
 .f_loop:
-    cmp r13, r12
+    cmp r14, r12
     jge .f_done
 
     call rand
@@ -279,15 +284,16 @@ init_params:
     subss xmm0, [one_f]
     mulss xmm0, [rsp + 40]      ; todo: check if rand overrides xmm0
 
-    movss [rbx + r13*4], xmm0
+    movss [rbx + r14*4], xmm0
 
-    inc r13
+    inc r14
     jmp .f_loop
 
 ; @function .f_done: Cleanup and return from fill
 .f_done:
-    add rsp, 48
+    add rsp, 56
 
+    pop r14
     pop r13
     pop r12
     pop rbx
