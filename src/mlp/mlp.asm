@@ -170,19 +170,19 @@ mlp_feed_forward:
 ; @param: rdx - Target tensor pointer
 ; @param: r8 - Input rows (batch size)
 ; @param: r9 - Input columns (input neurons)
-; @param: [rbp+176] - Amount of hidden neurons per layer
-; @param: [rbp+184] - Amount of hidden layers
-; @param: [rbp+192] - Output columns (output neurons)
-; @param: [rbp+200] - Weight tensor pointer
-; @param: [rbp+208] - Bias tensor pointer
-; @param: [rbp+216] - Weight gradient buffer
-; @param: [rbp+224] - Bias gradient buffer
-; @param: [rbp+232] - Activation buffer (flat)
-; @param: [rbp+240] - Delta buffer (flat)
-; @param: [rbp+248] - Amount of epochs
-; @param: [rbp+256] - Learning rate
-; @param: [rbp+264] - Apply dropout (0 or 1)
-; @param: [rbp+272] - If dropout, dropout rate
+; @param: [rbp+40] - Amount of hidden neurons per layer
+; @param: [rbp+48] - Amount of hidden layers
+; @param: [rbp+56] - Output columns (output neurons)
+; @param: [rbp+64] - Weight tensor pointer
+; @param: [rbp+72] - Bias tensor pointer
+; @param: [rbp+80] - Weight gradient buffer
+; @param: [rbp+88] - Bias gradient buffer
+; @param: [rbp+96] - Activation buffer (flat)
+; @param: [rbp+104] - Delta buffer (flat)
+; @param: [rbp+112] - Amount of epochs
+; @param: [rbp+120] - Learning rate
+; @param: [rbp+128] - Apply dropout (0 or 1)
+; @param: [rbp+136] - If dropout, dropout rate
 ; @return: rax - Weight tensor pointer
 ; @return: rdx - Bias tensor pointer
 mlp_train:

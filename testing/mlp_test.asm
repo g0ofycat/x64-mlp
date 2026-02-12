@@ -81,22 +81,22 @@ main:
 
     mov [rsp + 64], r14
     mov [rsp + 72], r15
-    mov rax, [weight_grad_base_ptr]
+    lea rax, [weight_grad_base_ptr]
     mov [rsp + 80], rax
-    mov rax, [bias_grad_base_ptr]
+    lea rax, [bias_grad_base_ptr]
     mov [rsp + 88], rax
-    mov rax, [activation_buffer]
+    lea rax, [activation_buffer]
     mov [rsp + 96], rax
-    mov rax, [delta_buffer]
+    lea rax, [delta_buffer]
     mov [rsp + 104], rax
     mov rax, [epochs]
     mov [rsp + 112], rax
-    movss xmm0, [learning_rate]
-    movss [rsp + 120], xmm0
+    movsd xmm0, [learning_rate]
+    movsd [rsp + 120], xmm0
     mov rax, [enable_dropout]
     mov [rsp + 128], rax
-    movss xmm0, [dropout_rate]
-    movss [rsp + 136], xmm0
+    movsd xmm0, [dropout_rate]
+    movsd [rsp + 136], xmm0
     call mlp_train 
 
     mov r14, rax                ; trained weights
@@ -117,9 +117,9 @@ main:
     mov [rsp + 64], rax
     mov rax, [output_neurons]
     mov [rsp + 72], rax
-    mov dword [rsp + 80], 0     ; disable dropout
-    movss xmm0, [dropout_rate]
-    movss [rsp + 88], xmm0
+    mov qword [rsp + 80], 0     ; disable dropout
+    movsd xmm0, [dropout_rate]
+    movsd [rsp + 88], xmm0
     call mlp_feed_forward
 
     mov ecx, [output_neurons]
