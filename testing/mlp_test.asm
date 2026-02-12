@@ -64,7 +64,7 @@ main:
     call init_params
 
     mov r14, rax                ; weight tensor
-    mov r15, r11                ; bias tensor
+    mov r15, rdx                ; bias tensor
 
     lea rcx, [input_tensor]
     lea rdx, [target_tensor]
