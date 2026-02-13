@@ -18,7 +18,7 @@ extern printf
 
 ; @section: String Data
 section .data
-    fmt_cel: db "Loss: %.6f | Epoch: %d", 10, 0
+    fmt_cel: db "Epoch: %d | Loss: %.6f", 10, 0
 
 ; @section: Global labels
 section .text
@@ -38,13 +38,13 @@ section .text
 ; @param: rdx - Weight tensor pointer
 ; @param: r8 - Bias tensor pointer
 ; @param: r9 - Output tensor pointer (pre-allocated)
-; @param: [rbp+40] - Input rows (batch size)
-; @param: [rbp+48] - Input columns (input neurons)
-; @param: [rbp+56] - Amount of hidden neurons per layer
-; @param: [rbp+64] - Amount of hidden layers
-; @param: [rbp+72] - Output columns (output neurons)
-; @param: [rbp+80] - Apply dropout (0 or 1)
-; @param: [rbp+88] - If dropout, dropout rate
+; @param: [rbp+32] - Input rows (batch size)
+; @param: [rbp+40] - Input columns (input neurons)
+; @param: [rbp+48] - Amount of hidden neurons per layer
+; @param: [rbp+56] - Amount of hidden layers
+; @param: [rbp+64] - Output columns (output neurons)
+; @param: [rbp+72] - Apply dropout (0 or 1)
+; @param: [rbp+80] - If dropout, dropout rate
 ; @return: rax - Pointer to output tensor
 mlp_feed_forward:
     push rbp
@@ -147,11 +147,26 @@ mlp_feed_forward:
     movsd [rsp + 72], xmm0        ; dropout_rate
     call mlp_forward_layer
 
-    mov rcx, r15                  ; input buffer
-    mov rdx, r15                  ; output buffer
-    mov r8, [rbp + 80]            ; output neurons
+    xor rbx, rbx                  ; sample counter
+
+; @function .softmax_loop: Apply softmax based on batch_size (xor rbx, rbx before)
+; @note: rm if output_neurons < 1
+.softmax_loop:
+    cmp rbx, [rbp + 48]           ; batch_size
+    jge .softmax_done
+
+    mov rax, rbx
+    imul rax, [rbp + 80]          ; sample * output_neurons
+    lea rcx, [r15 + rax*4]
+    lea rdx, [r15 + rax*4]
+    mov r8, [rbp + 80]    
     call softmax
 
+    inc rbx
+    jmp .softmax_loop
+
+; @function .softmax_done: Label when .softmax_loop is done
+.softmax_done:
     mov rax, r15
 
     add rsp, 104
@@ -219,19 +234,19 @@ mlp_train:
     mov r9, [rbp + 112]            ; activations
 
     mov rax, r12
-    mov [rsp + 40], rax            ; batch_size
+    mov [rsp + 32], rax            ; batch_size
     mov rax, r13
-    mov [rsp + 48], rax            ; input_neurons
+    mov [rsp + 40], rax            ; input_neurons
     mov rax, [rbp + 56]
-    mov [rsp + 56], rax            ; hidden_neurons
+    mov [rsp + 48], rax            ; hidden_neurons
     mov rax, [rbp + 64]
-    mov [rsp + 64], rax            ; num_hidden
+    mov [rsp + 56], rax            ; num_hidden
     mov rax, [rbp + 72]
-    mov [rsp + 72], rax            ; output_neurons
+    mov [rsp + 64], rax            ; output_neurons
     mov rax, [rbp + 144]
-    mov [rsp + 80], rax            ; enable dropout
+    mov [rsp + 72], rax            ; enable dropout
     movsd xmm0, [rbp + 152]
-    movsd [rsp + 88], xmm0         ; dropout_rate
+    movsd [rsp + 80], xmm0         ; dropout_rate
     call mlp_feed_forward
 
     mov [rbp - 8], rax             ; save predictions
@@ -243,9 +258,10 @@ mlp_train:
     call cross_entropy_loss
 
     lea rcx, [fmt_cel]
-    movq rdx, xmm0
-    mov r8, rbx
-    call printf
+    mov rdx, rbx
+    movq xmm2, xmm0
+    movq r8, xmm0
+    call printf 
 
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
@@ -389,16 +405,16 @@ mlp_train:
 ; @param: rdx - Target tensor pointer
 ; @param: r8 - Input rows (batch size)
 ; @param: r9 - Input columns (input neurons)
-; @param: [rbp+48] - Pointer to predictions
-; @param: [rbp+56] - Amount of hidden neurons per layer
-; @param: [rbp+64] - Amount of hidden layers
-; @param: [rbp+72] - Output columns (output neurons)
-; @param: [rbp+80] - Weight tensor pointer
-; @param: [rbp+88] - Bias tensor pointer
-; @param: [rbp+96] - Weight gradients
-; @param: [rbp+104] - Bias gradients
-; @param: [rbp+112] - Activations (flat buffer)
-; @param: [rbp+120] - Deltas (flat buffer)
+; @param: [rbp+32] - Pointer to predictions
+; @param: [rbp+40] - Amount of hidden neurons per layer
+; @param: [rbp+48] - Amount of hidden layers
+; @param: [rbp+56] - Output columns (output neurons)
+; @param: [rbp+64] - Weight tensor pointer
+; @param: [rbp+72] - Bias tensor pointer
+; @param: [rbp+80] - Weight gradients
+; @param: [rbp+88] - Bias gradients
+; @param: [rbp+96] - Activations (flat buffer)
+; @param: [rbp+104] - Deltas (flat buffer)
 mlp_back_propagation:
     push rbp
     mov rbp, rsp
@@ -602,10 +618,17 @@ mlp_back_propagation:
     mov r9, r12                     ; batch_size
 
     mov rax, [rbp - 32]
-    mov [rsp + 32], rax             ; in_neurons
+    mov [rsp + 40], rax             ; in_neurons
     mov rax, [rbp - 40]
-    mov [rsp + 40], rax             ; out_neurons
+    mov [rsp + 48], rax             ; out_neurons
     call compute_weight_gradients
+
+    ; CRASH HERE
+
+    mov rcx, rbp 
+    mov rdx, 16 
+    mov r8, 240 
+    call print_stack_offsets
 
     mov rcx, rdx                    ; current delta
     mov rdx, [rbp - 24]             ; bias_grads
@@ -924,7 +947,7 @@ compute_weight_gradients:
     push r12
     push r13
 
-    sub rsp, 40
+    sub rsp, 48
 
     mov r10, [rbp + 56]
     mov r11, [rbp + 64]
@@ -1003,7 +1026,7 @@ compute_weight_gradients:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 40
+    add rsp, 48
 
     pop r13
     pop r12

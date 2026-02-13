@@ -35,7 +35,7 @@ section .data
 
     test_tensor: dd 1.0, 1.0
 
-    target_tensor: dd 0.0, 1.0, 1.0, 0.0
+    target_tensor: dd 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0
 
     fmt_output: db "Output[%d] = %.4f", 10, 0
 
@@ -108,18 +108,18 @@ main:
     lea r9, [activation_buffer]
 
     mov rax, [batch_size]
-    mov [rsp + 40], rax
+    mov [rsp + 32], rax
     mov rax, [input_neurons]
-    mov [rsp + 48], rax
+    mov [rsp + 40], rax
     mov rax, [hidden_neurons]
-    mov [rsp + 56], rax
+    mov [rsp + 48], rax
     mov rax, [hidden_layers]
-    mov [rsp + 64], rax
+    mov [rsp + 56], rax
     mov rax, [output_neurons]
-    mov [rsp + 72], rax
-    mov qword [rsp + 80], 0     ; disable dropout
+    mov [rsp + 64], rax
+    mov qword [rsp + 72], 0     ; disable dropout
     movsd xmm0, [dropout_rate]
-    movsd [rsp + 88], xmm0
+    movsd [rsp + 80], xmm0
     call mlp_feed_forward
 
     mov ecx, [output_neurons]

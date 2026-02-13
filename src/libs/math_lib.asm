@@ -3,6 +3,10 @@ default rel
 extern expf
 extern logf
 
+; @section: CEL Data
+section .data
+    cel_epsilon: dd 0x358637BD      ; 1e-6 f32
+
 ; @section: Global labels
 section .text
     global relu
@@ -219,6 +223,8 @@ cross_entropy_loss:
     mov r13, rdx
     mov rbx, r8
 
+    movss xmm7, [cel_epsilon]
+
     xorps xmm6, xmm6
     xor r14, r14                ; i = 0
 
@@ -227,15 +233,15 @@ cross_entropy_loss:
     cmp r14, rbx
     jge .done
 
-    ; loss -= label * log(prediction)
     movss xmm0, [r12 + r14*4]   ; prediction
+    maxss xmm0, xmm7
     call logf                   ; xmm0 = log(prediction)
 
     mulss xmm0, [r13 + r14*4]   ; label * log(pred)
-    subss xmm6, xmm0 
+    subss xmm6, xmm0            ; loss -= label * log(pred)
 
     inc r14
-    jmp .loop
+    jmp .loop 
 
 ; @function .done: Label when cross_entropy_loss is done
 .done:

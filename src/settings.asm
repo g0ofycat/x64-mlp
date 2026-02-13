@@ -17,7 +17,7 @@ section .data
     input_neurons: dq 2
     hidden_neurons: dq 3
     hidden_layers: dq 1
-    output_neurons: dq 1
+    output_neurons: dq 2
 
     ; @data: MLP Training
 
