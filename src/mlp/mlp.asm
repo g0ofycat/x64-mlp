@@ -56,6 +56,8 @@ mlp_feed_forward:
     push r14
     push r15
 
+    sub rsp, 104
+
     mov r12, rcx                  ; input pointer
     mov r13, rdx                  ; weight pointer
     mov r14, r8                   ; bias pointer
