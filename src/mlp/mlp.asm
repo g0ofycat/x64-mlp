@@ -10,6 +10,7 @@ extern cross_entropy_loss
 ; @extern: External Libraries
 
 extern apply_dropout
+extern print_stack_offsets
 
 ; @extern: C Libs
 
@@ -17,7 +18,7 @@ extern printf
 
 ; @section: String Data
 section .data
-    fmt_cel: db "Loss: %.6f Epoch: %lld", 10, 0
+    fmt_cel: db "Loss: %.6f | Epoch: %d", 10, 0
 
 ; @section: Global labels
 section .text
@@ -54,8 +55,6 @@ mlp_feed_forward:
     push r13
     push r14
     push r15
-
-    sub rsp, 104
 
     mov r12, rcx                  ; input pointer
     mov r13, rdx                  ; weight pointer
@@ -111,8 +110,8 @@ mlp_feed_forward:
     mov [rsp + 56], rax           ; out_neurons
     mov rax, [rbp + 88]
     mov [rsp + 64], rax           ; dropout enabled
-    movss xmm0, [rbp + 96]
-    movss [rsp + 72], xmm0        ; dropout_rate
+    movsd xmm0, [rbp + 96]
+    movsd [rsp + 72], xmm0        ; dropout_rate
     call mlp_forward_layer
 
     mov r8, [rsp + 32]            ; restore in_neurons
@@ -123,7 +122,8 @@ mlp_feed_forward:
     lea r13, [r13 + rax * 4]      ; next weight block
     lea r14, [r14 + r9 * 4]       ; next bias block
 
-    mov rdx, rax                   ; acts_prev = acts_curr
+    mov rdx, rax                  ; acts_prev = acts_curr
+
     inc rsi
     jmp .loop_layers
 
@@ -141,8 +141,8 @@ mlp_feed_forward:
     mov rax, [rbp + 80]
     mov [rsp + 56], rax           ; out_neurons
     mov qword [rsp + 64], 0       ; dropout enabled
-    movss xmm0, [rbp + 96]
-    movss [rsp + 72], xmm0        ; dropout_rate
+    movsd xmm0, [rbp + 96]
+    movsd [rsp + 72], xmm0        ; dropout_rate
     call mlp_forward_layer
 
     mov rcx, r15                  ; input buffer
@@ -198,46 +198,46 @@ mlp_train:
 
     sub rsp, 144
 
-    mov r12, r8                     ; batch_size
-    mov r13, r9                     ; input_neurons
-    mov r14, rcx                    ; input tensor
-    mov r15, rdx                    ; target tensor
+    mov r12, r8                    ; batch_size
+    mov r13, r9                    ; input_neurons
+    mov r14, rcx                   ; input tensor
+    mov r15, rdx                   ; target tensor
 
-    mov rbx, [rbp + 248]            ; epochs
+    mov rbx, [rbp + 128]           ; epochs
 
     test rbx, rbx
     jz .done
 
 ; @function .epoch_loop: Epoch training loop
 .epoch_loop:
-    mov rcx, r14                    ; input tensor
+    mov rcx, r14                   ; input tensor
 
-    mov rdx, [rbp + 200]            ; weights
-    mov r8, [rbp + 208]             ; biases
-    mov r9, [rbp + 232]             ; activations
+    mov rdx, [rbp + 80]            ; weights
+    mov r8, [rbp + 88]             ; biases
+    mov r9, [rbp + 112]            ; activations
 
     mov rax, r12
-    mov [rsp + 48], rax             ; batch_size
+    mov [rsp + 40], rax            ; batch_size
     mov rax, r13
-    mov [rsp + 56], rax             ; input_neurons
-    mov rax, [rbp + 176]
-    mov [rsp + 64], rax             ; hidden_neurons
-    mov rax, [rbp + 184]
-    mov [rsp + 72], rax             ; num_hidden
-    mov rax, [rbp + 192]
-    mov [rsp + 80], rax             ; output_neurons
-    mov rax, [rbp + 264]
-    mov [rsp + 88], rax             ; enable dropout
-    movss xmm0, [rbp + 272]
-    movss [rsp + 96], xmm0          ; dropout_rate
+    mov [rsp + 48], rax            ; input_neurons
+    mov rax, [rbp + 56]
+    mov [rsp + 56], rax            ; hidden_neurons
+    mov rax, [rbp + 64]
+    mov [rsp + 64], rax            ; num_hidden
+    mov rax, [rbp + 72]
+    mov [rsp + 72], rax            ; output_neurons
+    mov rax, [rbp + 144]
+    mov [rsp + 80], rax            ; enable dropout
+    movsd xmm0, [rbp + 152]
+    movsd [rsp + 88], xmm0         ; dropout_rate
     call mlp_feed_forward
 
-    mov [rbp - 8], rax              ; save predictions
+    mov [rbp - 8], rax             ; save predictions
 
-    mov rcx, rax                    ; predictions
-    mov rdx, r15                    ; targets
-    mov r8, [rbp + 192]             ; output_neurons (per sample)
-    imul r8, r12                    ; * batch_size = total length
+    mov rcx, rax                   ; predictions
+    mov rdx, r15                   ; targets
+    mov r8, [rbp + 72]             ; output_neurons (per sample)
+    imul r8, r12                   ; * batch_size = total length
     call cross_entropy_loss
 
     lea rcx, [fmt_cel]
@@ -245,62 +245,62 @@ mlp_train:
     mov r8, rbx
     call printf
 
-    mov rcx, r14                    ; input tensor
-    mov rdx, r15                    ; target tensor
-    mov r8, r12                     ; batch_size
-    mov r9, r13                     ; input_neurons
+    mov rcx, r14                   ; input tensor
+    mov rdx, r15                   ; target tensor
+    mov r8, r12                    ; batch_size
+    mov r9, r13                    ; input_neurons
 
     mov rax, [rbp - 8]
-    mov [rsp + 32], rax             ; predictions
-    mov rax, [rbp + 176]
-    mov [rsp + 40], rax             ; hidden_neurons
-    mov rax, [rbp + 184]
-    mov [rsp + 48], rax             ; num_hidden
-    mov rax, [rbp + 192]
-    mov [rsp + 56], rax             ; output_neurons
-    mov rax, [rbp + 200]
-    mov [rsp + 64], rax             ; weights
-    mov rax, [rbp + 208]
-    mov [rsp + 72], rax             ; biases
-    mov rax, [rbp + 216]
-    mov [rsp + 80], rax             ; weight_grads
-    mov rax, [rbp + 224]
-    mov [rsp + 88], rax             ; bias_grads
-    mov rax, [rbp + 232]
-    mov [rsp + 96], rax             ; activations
-    mov rax, [rbp + 240]
-    mov [rsp + 104], rax            ; deltas
+    mov [rsp + 32], rax            ; predictions
+    mov rax, [rbp + 56]
+    mov [rsp + 40], rax            ; hidden_neurons
+    mov rax, [rbp + 64]
+    mov [rsp + 48], rax            ; num_hidden
+    mov rax, [rbp + 72]
+    mov [rsp + 56], rax            ; output_neurons
+    mov rax, [rbp + 80]
+    mov [rsp + 64], rax            ; weights
+    mov rax, [rbp + 88]
+    mov [rsp + 72], rax            ; biases
+    mov rax, [rbp + 96]
+    mov [rsp + 80], rax            ; weight_grads
+    mov rax, [rbp + 104]
+    mov [rsp + 88], rax            ; bias_grads
+    mov rax, [rbp + 112]
+    mov [rsp + 96], rax            ; activations
+    mov rax, [rbp + 120]
+    mov [rsp + 104], rax           ; deltas
     call mlp_back_propagation
 
-    xor rsi, rsi                    ; layer = 0
+    xor rsi, rsi                   ; layer = 0
 
-    mov r10, [rbp + 200]            ; weight_ptr
-    mov r11, [rbp + 216]            ; weight_grad_ptr
+    mov r10, [rbp + 80]            ; weight_ptr
+    mov r11, [rbp + 96]            ; weight_grad_ptr
 
 ; @function .update_weights_loop: Loop to update weights for all layers
 .update_weights_loop:
-    mov rax, [rbp + 184]
-    inc rax                         ; total_layers = num_hidden + 1
+    mov rax, [rbp + 64]
+    inc rax                        ; total_layers = num_hidden + 1
 
     cmp rsi, rax
     jge .update_biases
 
-    mov r8, r13                     ; default: input_neurons
+    mov r8, r13                    ; default: input_neurons
 
     test rsi, rsi
     jz .update_in_set
 
-    mov r8, [rbp + 176]             ; hidden_neurons
+    mov r8, [rbp + 56]             ; hidden_neurons
 
 ; @function .update_in_set: Set input size for weight update
 .update_in_set:
-    mov r9, [rbp + 176]             ; hidden_neurons
-    mov rax, [rbp + 184]
+    mov r9, [rbp + 56]             ; hidden_neurons
+    mov rax, [rbp + 64]
 
     cmp rsi, rax
     jl .update_weights_call
 
-    mov r9, [rbp + 192]             ; output_neurons
+    mov r9, [rbp + 72]             ; output_neurons
 
 ; @function .update_weights_call: Apply SGD to current layer weights
 .update_weights_call:
@@ -309,7 +309,7 @@ mlp_train:
     mov rax, r8
     imul rax, r9
     mov r8, rax
-    movss xmm0, [rbp + 256]         ; learning_rate
+    movsd xmm0, [rbp + 136]        ; learning_rate
     call apply_sgd_step
 
     mov rax, r8
@@ -322,32 +322,32 @@ mlp_train:
 
 ; @function .update_biases: Update biases for all layers
 .update_biases:
-    xor rsi, rsi                    ; layer = 0
+    xor rsi, rsi                   ; layer = 0
 
-    mov r10, [rbp + 208]            ; bias_ptr
-    mov r11, [rbp + 224]            ; bias_grad_ptr
+    mov r10, [rbp + 88]            ; bias_ptr
+    mov r11, [rbp + 104]           ; bias_grad_ptr
 
 ; @function .update_biases_loop: Loop to update biases for all layers
 .update_biases_loop:
-    mov rax, [rbp + 184]
+    mov rax, [rbp + 64]
     inc rax
 
     cmp rsi, rax
     jge .epoch_done
 
-    mov r8, [rbp + 176]             ; hidden_neurons
-    mov rax, [rbp + 184]
+    mov r8, [rbp + 56]             ; hidden_neurons
+    mov rax, [rbp + 64]
 
     cmp rsi, rax
     jl .update_bias_call
 
-    mov r8, [rbp + 192]             ; output_neurons
+    mov r8, [rbp + 72]             ; output_neurons
 
 ; @function .update_bias_call: Apply SGD to current layer biases
 .update_bias_call:
     mov rcx, r10
     mov rdx, r11
-    movss xmm0, [rbp + 256]
+    movsd xmm0, [rbp + 136]
     call apply_sgd_step
 
     mov rax, r8
@@ -365,8 +365,8 @@ mlp_train:
 
 ; @function .done: Label when mlp_train is done
 .done:
-    mov rax, [rbp + 200]
-    mov rdx, [rbp + 208]
+    mov rax, [rbp + 80]
+    mov rdx, [rbp + 88]
 
     add rsp, 144
 
