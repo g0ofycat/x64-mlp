@@ -625,11 +625,6 @@ mlp_back_propagation:
 
     ; CRASH HERE
 
-    mov rcx, rbp 
-    mov rdx, 16 
-    mov r8, 240 
-    call print_stack_offsets
-
     mov rcx, rdx                    ; current delta
     mov rdx, [rbp - 24]             ; bias_grads
     mov r8, r12
@@ -944,19 +939,21 @@ compute_weight_gradients:
     push rbx
     push rsi
     push rdi
-    push r12
     push r13
+    push r14
+    push r15
 
-    sub rsp, 48
+    sub rsp, 56
 
     mov r10, [rbp + 56]
     mov r11, [rbp + 64]
+    mov r13, r9
 
     xor rsi, rsi           ; b = 0 (batch loop)
 
 ; @function .batch_loop: Check if the current batch loop is done
 .batch_loop:
-    cmp rsi, r9
+    cmp rsi, r13
     jge .done
 
     xor rbx, rbx           ; i = 0 (input neuron loop)
@@ -972,15 +969,14 @@ compute_weight_gradients:
 
     movss xmm0, [rcx + rax*4]
     shufps xmm0, xmm0, 0
-    
+
     mov rax, rbx
     imul rax, r11
-    lea r12, [r8 + rax*4]
-
+    lea r14, [r8 + rax*4]
     mov rax, rsi
-    imul rax, r11
-    lea r13, [rdx + rax*4]
 
+    imul rax, r11
+    lea r15, [rdx + rax*4]
     xor rdi, rdi           ; j = 0
 
 ; @function .output_loop_simd: SIMD Matmul (4 SIMD)
@@ -991,12 +987,12 @@ compute_weight_gradients:
     cmp rax, 4
     jl .output_loop_scalar
 
-    movups xmm1, [r13 + rdi*4]
+    movups xmm1, [r15 + rdi*4]
     mulps xmm1, xmm0
+    movups xmm2, [r14 + rdi*4]
 
-    movups xmm2, [r12 + rdi*4]
     addps xmm2, xmm1
-    movups [r12 + rdi*4], xmm2
+    movups [r14 + rdi*4], xmm2
 
     add rdi, 4
     jmp .output_loop_simd
@@ -1006,10 +1002,10 @@ compute_weight_gradients:
     cmp rdi, r11
     jge .next_input
 
-    movss xmm1, [r13 + rdi*4]
+    movss xmm1, [r15 + rdi*4]
     mulss xmm1, xmm0
-    addss xmm1, [r12 + rdi*4]
-    movss [r12 + rdi*4], xmm1
+    addss xmm1, [r14 + rdi*4]
+    movss [r14 + rdi*4], xmm1
 
     inc rdi
     jmp .output_loop_scalar
@@ -1026,10 +1022,11 @@ compute_weight_gradients:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 48
+    add rsp, 56
 
+    pop r15
+    pop r14
     pop r13
-    pop r12
     pop rdi
     pop rsi
     pop rbx

@@ -25,6 +25,7 @@ print_stack_offsets:
     push r12
     push r13
     push r14
+
     sub rsp, 40
 
     mov r12, rcx
@@ -49,6 +50,7 @@ print_stack_offsets:
     jl .loop_start
 
     add rsp, 40
+
     pop r14
     pop r13
     pop r12
