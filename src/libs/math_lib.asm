@@ -241,7 +241,7 @@ cross_entropy_loss:
     subss xmm6, xmm0            ; loss -= label * log(pred)
 
     inc r14
-    jmp .loop 
+    jmp .loop
 
 ; @function .done: Label when cross_entropy_loss is done
 .done:
