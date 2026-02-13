@@ -59,9 +59,9 @@ relu:
 ; =============== relu_derivative ===============
 
 ; @function relu_derivative: ReLU Derivative (in-place)
-; @param rcx - Pointer to original output (forward pass)
-; @param rdx - Pointer to gradients (to be modified in-place)
-; @param r8 - Array Length
+; @param: rcx - Pointer to original output (forward pass)
+; @param: rdx - Pointer to gradients (to be modified in-place)
+; @param: r8 - Array Length
 relu_derivative:
     xor r10, r10
     xorps xmm2, xmm2

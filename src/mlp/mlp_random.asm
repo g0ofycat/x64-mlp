@@ -111,12 +111,12 @@ apply_dropout:
 ; =============== init_params ===============
 
 ; @function init_params: Init weights (He Uniform) and biases (0)
-; @param rcx - Amount of input neurons
-; @param rdx - Amount of hidden neurons
-; @param r8 - Amount of hidden layers
-; @param r9 - Amount of output neurons
-; @return rax - Pointer to weight tensor
-; @return rdx - Pointer to the bias tensor
+; @param: rcx - Amount of input neurons
+; @param: rdx - Amount of hidden neurons
+; @param: r8 - Amount of hidden layers
+; @param: r9 - Amount of output neurons
+; @return: rax - Pointer to weight tensor
+; @return: rdx - Pointer to the bias tensor
 init_params:
     push rbp
     mov rbp, rsp
@@ -247,9 +247,9 @@ init_params:
 ; =============== INTERNAL HELPERS ===============
 
 ; @function .he_fill: Fill a buffer with He Uniform distribution (in-place)
-; @param rcx - Buffer pointer
-; @param rdx - Element count
-; @param rax - fan_in (for limit calculation)
+; @param: rcx - Buffer pointer
+; @param: rdx - Element count
+; @param: rax - fan_in (for limit calculation)
 .he_fill:
     push rbx
     push r12

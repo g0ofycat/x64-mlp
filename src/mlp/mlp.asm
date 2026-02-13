@@ -261,7 +261,7 @@ mlp_train:
     mov rdx, rbx
     movq xmm2, xmm0
     movq r8, xmm0
-    call printf 
+    call printf
 
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
@@ -618,9 +618,9 @@ mlp_back_propagation:
     mov r9, r12                     ; batch_size
 
     mov rax, [rbp - 32]
-    mov [rsp + 40], rax             ; in_neurons
+    mov [rsp + 32], rax             ; in_neurons
     mov rax, [rbp - 40]
-    mov [rsp + 48], rax             ; out_neurons
+    mov [rsp + 40], rax             ; out_neurons
     call compute_weight_gradients
 
     ; CRASH HERE
@@ -926,12 +926,12 @@ mlp_backward_layer:
 ; =============== compute_weight_gradients ===============
 
 ; @function compute_weight_gradients: Compute weight gradients (in-place)
-; @param rcx - Pointer to activations (Input to this layer)
-; @param rdx - Pointer to errors (Delta from next layer)
-; @param r8  - Pointer to the specific block in grad_base_ptr
-; @param r9  - Batch Size
-; @param [rbp+40] - Input neurons (columns in X)
-; @param [rbp+48] - Output neurons (columns in Delta)
+; @param: rcx - Pointer to activations (Input to this layer)
+; @param: rdx - Pointer to errors (Delta from next layer)
+; @param: r8  - Pointer to the specific block in grad_base_ptr
+; @param: r9  - Batch Size
+; @param: [rbp+40] - Input neurons (columns in X)
+; @param: [rbp+48] - Output neurons (columns in Delta)
 compute_weight_gradients:
     push rbp
     mov rbp, rsp
@@ -943,10 +943,10 @@ compute_weight_gradients:
     push r14
     push r15
 
-    sub rsp, 56
+    sub rsp, 64
 
-    mov r10, [rbp + 56]
-    mov r11, [rbp + 64]
+    mov r10, [rbp + 48]
+    mov r11, [rbp + 56]
     mov r13, r9
 
     xor rsi, rsi           ; b = 0 (batch loop)
@@ -1022,7 +1022,7 @@ compute_weight_gradients:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 56
+    add rsp, 64
 
     pop r15
     pop r14
@@ -1037,16 +1037,18 @@ compute_weight_gradients:
 ; =============== compute_bias_gradients ===============
 
 ; @function compute_bias_gradients: Compute bias gradients by summing deltas across batch
-; @param rcx - Pointer to delta buffer
-; @param rdx - Pointer to bias gradient buffer
-; @param r8 - Batch size
-; @param r9 - Output neurons
+; @param: rcx - Pointer to delta buffer
+; @param: rdx - Pointer to bias gradient buffer
+; @param: r8 - Batch size
+; @param: r9 - Output neurons
 compute_bias_gradients:
     push rbp
     mov rbp, rsp
 
     push rbx
     push rsi
+
+    sub rsp, 32
 
     xor rbx, rbx           ; j = 0 (output neuron loop)
 
@@ -1084,6 +1086,8 @@ compute_bias_gradients:
 
 ; @function .done: Label when compute_bias_gradients is done
 .done:
+    add rsp, 32
+
     pop rsi
     pop rbx
     pop rbp
@@ -1093,12 +1097,12 @@ compute_bias_gradients:
 ; =============== compute_hidden_error ===============
 
 ; @function compute_hidden_error: Computer error in hidden layers (in-place)
-; @param rcx - Pointer to current Delta
-; @param rdx - Pointer to Weights
-; @param r8 - Pointer to Previous Delta Buffer
-; @param r9 - Batch Size
-; @param [rbp+40] - Input Neurons
-; @param [rbp+48] - Output Neurons
+; @param: rcx - Pointer to current Delta
+; @param: rdx - Pointer to Weights
+; @param: r8 - Pointer to Previous Delta Buffer
+; @param: r9 - Batch Size
+; @param: [rbp+40] - Input Neurons
+; @param: [rbp+48] - Output Neurons
 compute_hidden_error:
     push rbp
     mov rbp, rsp
@@ -1111,8 +1115,8 @@ compute_hidden_error:
 
     sub rsp, 24
 
-    mov r10, [rbp + 56]
-    mov r11, [rbp + 64]
+    mov r10, [rbp + 48]
+    mov r11, [rbp + 56]
 
     xor rsi, rsi           ; b = 0
 
@@ -1202,8 +1206,8 @@ compute_hidden_error:
 ; =============== zero_gradients ===============
 
 ; @function zero_gradients: Zero gradients (in-place)
-; @param rcx - Pointer to gradient buffer (grad_base_ptr)
-; @param r8  - Total number of floats to zero
+; @param: rcx - Pointer to gradient buffer (grad_base_ptr)
+; @param: r8  - Total number of floats to zero
 zero_gradients:
     xorps xmm0, xmm0
     xor r10, r10
@@ -1238,10 +1242,10 @@ zero_gradients:
 ; =============== compute_output_error ===============
 
 ; @function compute_output_error: SIMD "Prediction - Target" (4 SIMD) (in-place)
-; @param rcx - Pointer to Final layer activations (Predictions)
-; @param rdx - Pointer to Target tensor (Labels)
-; @param r8  - Pointer to Destination (First Delta Buffer)
-; @param r9  - Total number of floats (Batch * Output_Neurons)
+; @param: rcx - Pointer to Final layer activations (Predictions)
+; @param: rdx - Pointer to Target tensor (Labels)
+; @param: r8  - Pointer to Destination (First Delta Buffer)
+; @param: r9  - Total number of floats (Batch * Output_Neurons)
 compute_output_error:
     xor r10, r10
 
@@ -1282,10 +1286,10 @@ compute_output_error:
 ; =============== apply_sgd_step ===============
 
 ; @function apply_sgd_step: Apply optimizer (in-place)
-; @param rcx - Pointer to Weight tensor
-; @param rdx - Pointer to Gradient tensor
-; @param r8  - Total number of elements
-; @param xmm0 - Learning Rate (scalar float)
+; @param: rcx - Pointer to Weight tensor
+; @param: rdx - Pointer to Gradient tensor
+; @param: r8  - Total number of elements
+; @param: xmm0 - Learning Rate (scalar float)
 apply_sgd_step:
     shufps xmm0, xmm0, 0
     xor r10, r10
