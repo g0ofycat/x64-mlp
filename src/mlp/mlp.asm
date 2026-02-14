@@ -595,7 +595,9 @@ mlp_back_propagation:
     mov [rsp + 40], r12             ; batch_size
     mov rax, [rbp - 32]
     mov [rsp + 48], rax             ; input_neurons
+    mov rax, [rbp - 40]
     mov [rsp + 56], rax             ; output_neurons
+
     mov [rsp + 64], r15             ; weight_grads
     mov rax, [rbp - 24]
     mov [rsp + 72], rax             ; bias_grads
@@ -622,8 +624,6 @@ mlp_back_propagation:
     mov rax, [rbp - 40]
     mov [rsp + 40], rax             ; out_neurons
     call compute_weight_gradients
-
-    ; CRASH HERE
 
     mov rcx, rdx                    ; current delta
     mov rdx, [rbp - 24]             ; bias_grads
@@ -881,39 +881,40 @@ mlp_backward_layer:
 
     mov rcx, r8                ; next delta
     mov rdx, r9                ; next weights
-    mov r8, [rbp + 88]         ; this delta (output)
-    mov r9, [rbp + 48]         ; batch size
+    mov r8, [rbp + 96]         ; this delta (output)
+    mov r9, [rbp + 56]         ; batch size
 
-    mov rax, [rbp + 56]
-    mov [rsp + 32], rax        ; input neurons
     mov rax, [rbp + 64]
+    mov [rsp + 32], rax        ; input neurons
+    mov rax, [rbp + 72]
     mov [rsp + 40], rax        ; output neurons
     call compute_hidden_error
 
     mov rcx, r13               ; activations
-    mov rdx, [rbp + 88]        ; this delta
-    mov rax, [rbp + 48]
-    imul rax, [rbp + 56]
+    mov rdx, [rbp + 96]        ; this delta
+    mov rax, [rbp + 56]
+    imul rax, [rbp + 64]
     mov r8, rax                ; batch * neurons
     call relu_derivative
 
     mov rcx, r12               ; input activations
-    mov rdx, [rbp + 88]        ; this delta
-    mov r8, [rbp + 72]         ; weight gradients
-    mov r9, [rbp + 48]         ; batch size
+    mov rdx, [rbp + 96]        ; this delta
+    mov r8, [rbp + 80]         ; weight gradients
+    mov r9, [rbp + 56]         ; batch size
 
-    mov rax, [rbp + 56]
+    mov rax, [rbp + 64]
     mov [rsp + 32], rax        ; input neurons
+    mov rax, [rbp + 72]
     mov [rsp + 40], rax        ; output neurons
     call compute_weight_gradients
 
-    mov rcx, [rbp + 88]        ; this delta
-    mov rdx, [rbp + 80]        ; bias gradients
-    mov r8, [rbp + 48]         ; batch size
-    mov r9, [rbp + 56]         ; input neurons
+    mov rcx, [rbp + 96]        ; this delta
+    mov rdx, [rbp + 88]        ; bias gradients
+    mov r8, [rbp + 56]         ; batch size
+    mov r9, [rbp + 64]         ; input neurons
     call compute_bias_gradients
 
-    mov rax, [rbp + 88]
+    mov rax, [rbp + 96]
 
     add rsp, 48
 
@@ -930,8 +931,8 @@ mlp_backward_layer:
 ; @param: rdx - Pointer to errors (Delta from next layer)
 ; @param: r8  - Pointer to the specific block in grad_base_ptr
 ; @param: r9  - Batch Size
-; @param: [rbp+40] - Input neurons (columns in X)
-; @param: [rbp+48] - Output neurons (columns in Delta)
+; @param: [rbp+48] - Input neurons (columns in X)
+; @param: [rbp+56] - Output neurons (columns in Delta)
 compute_weight_gradients:
     push rbp
     mov rbp, rsp
@@ -939,24 +940,31 @@ compute_weight_gradients:
     push rbx
     push rsi
     push rdi
+    push r12
     push r13
     push r14
     push r15
 
-    sub rsp, 64
+    sub rsp, 72
 
-    mov r10, [rbp + 48]
-    mov r11, [rbp + 56]
-    mov r13, r9
+    mov r12, rcx           ; activations
+    mov r13, rdx           ; delta
+    mov r14, r8            ; grad_ptr
+    mov r15, r9            ; batch_size
+    mov r10, [rbp + 48]    ; input_neurons
+    mov r11, [rbp + 56]    ; output_neurons
 
-    xor rsi, rsi           ; b = 0 (batch loop)
+    xor rax, rax
+    call printf            ; hacky workaround for windows 16 byte stack alignment, im guessing that any c lib (afaik) call which correctly aligns the stack will fix this. this is the only reliable workaround i have found and this 1 issue with compute_weight_gradients has took me at least 12 hours to solve. maybe i will fix this, seems like a waste of time though. no, this does not override any register, i've checked and there is no side effects found
+
+    xor rsi, rsi           ; batch counter
 
 ; @function .batch_loop: Check if the current batch loop is done
 .batch_loop:
-    cmp rsi, r13
+    cmp rsi, r15
     jge .done
 
-    xor rbx, rbx           ; i = 0 (input neuron loop)
+    xor rbx, rbx           ; input neuron counter
 
 ; @function .input_loop: Compute the current batch
 .input_loop:
@@ -967,17 +975,18 @@ compute_weight_gradients:
     imul rax, r10
     add rax, rbx
 
-    movss xmm0, [rcx + rax*4]
+    movss xmm0, [r12 + rax*4]
     shufps xmm0, xmm0, 0
 
     mov rax, rbx
     imul rax, r11
-    lea r14, [r8 + rax*4]
-    mov rax, rsi
+    lea r8, [r14 + rax*4]
 
+    mov rax, rsi
     imul rax, r11
-    lea r15, [rdx + rax*4]
-    xor rdi, rdi           ; j = 0
+    lea r9, [r13 + rax*4]
+
+    xor rdi, rdi           ; output counter
 
 ; @function .output_loop_simd: SIMD Matmul (4 SIMD)
 .output_loop_simd:
@@ -987,12 +996,12 @@ compute_weight_gradients:
     cmp rax, 4
     jl .output_loop_scalar
 
-    movups xmm1, [r15 + rdi*4]
+    movups xmm1, [r9 + rdi*4]
     mulps xmm1, xmm0
-    movups xmm2, [r14 + rdi*4]
+    movups xmm2, [r8 + rdi*4]
 
     addps xmm2, xmm1
-    movups [r14 + rdi*4], xmm2
+    movups [r8 + rdi*4], xmm2
 
     add rdi, 4
     jmp .output_loop_simd
@@ -1002,10 +1011,10 @@ compute_weight_gradients:
     cmp rdi, r11
     jge .next_input
 
-    movss xmm1, [r15 + rdi*4]
+    movss xmm1, [r9 + rdi*4]
     mulss xmm1, xmm0
-    addss xmm1, [r14 + rdi*4]
-    movss [r14 + rdi*4], xmm1
+    addss xmm1, [r8 + rdi*4]
+    movss [r8 + rdi*4], xmm1
 
     inc rdi
     jmp .output_loop_scalar
@@ -1020,13 +1029,14 @@ compute_weight_gradients:
     inc rsi
     jmp .batch_loop
 
-; @function .done: Label when mlp_back_propagation is done
+; @function .done: Label when compute_weight_gradients is done
 .done:
-    add rsp, 64
+    add rsp, 72
 
     pop r15
     pop r14
     pop r13
+    pop r12
     pop rdi
     pop rsi
     pop rbx
