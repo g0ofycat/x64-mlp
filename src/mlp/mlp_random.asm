@@ -13,7 +13,10 @@ section .data
     two_f: dd 2.0
     six_f: dd 6.0
 
+    bias_init: dd 0.01
+
     rand_max_float: dd 32767.0       ; at least on cpp im pretty sure this is the lowest constant
+    rand_max_int: dd 32767
     min_keep: dd 0.00001
 
 ; @section: Global labels
@@ -71,7 +74,8 @@ apply_dropout:
 
     call rand               ; eax = random int
 
-    and eax, 0x7FFF
+    mov r8d, [rand_max_int]
+    and eax, r8d
     cvtsi2ss xmm0, eax      ; eax to float
     divss xmm0, [rand_max_float]
 
@@ -225,10 +229,21 @@ init_params:
     call .he_fill
 
     mov rdi, r15
-    xor eax, eax
-    mov rcx, r13
-    rep stosd
+    movss xmm0, [bias_init]
+    xor r10, r10
 
+; @function .bias_loop: Fill bias array with bias_init
+.bias_loop:
+    cmp r10, r13
+    jge .bias_done
+
+    movss [rdi + r10*4], xmm0
+    inc r10
+
+    jmp .bias_loop
+
+; @function .bias_done: Label when .bias_loop is done
+.bias_done:
     mov rax, r14
     mov rdx, r15
 
@@ -277,7 +292,8 @@ init_params:
 
     call rand
 
-    and eax, 0x7FFF
+    mov r8d, [rand_max_int]
+    and eax, r8d
     cvtsi2ss xmm0, eax
     divss xmm0, [rand_max_float]
     mulss xmm0, [two_f]

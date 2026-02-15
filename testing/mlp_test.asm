@@ -66,42 +66,6 @@ main:
     mov r14, rax                ; weight tensor
     mov r15, rdx                ; bias tensor
 
-    lea rcx, [input_tensor]
-    lea rdx, [target_tensor]
-    mov r8, [batch_size]
-    mov r9, [input_neurons]
-
-    mov rax, [hidden_neurons]
-    mov [rsp + 32], rax
-
-    mov rax, [hidden_layers]
-    mov [rsp + 40], rax
-    mov rax, [output_neurons]
-    mov [rsp + 48], rax
-
-    mov [rsp + 56], r14
-    mov [rsp + 64], r15
-    lea rax, [weight_grad_base_ptr]
-    mov [rsp + 72], rax
-    lea rax, [bias_grad_base_ptr]
-    mov [rsp + 80], rax
-    lea rax, [activation_buffer]
-    mov [rsp + 88], rax
-    lea rax, [delta_buffer]
-    mov [rsp + 96], rax
-    mov rax, [epochs]
-    mov [rsp + 104], rax
-    movsd xmm0, [learning_rate]
-    movsd [rsp + 112], xmm0
-    mov rax, [enable_dropout]
-    mov [rsp + 120], rax
-    movsd xmm0, [dropout_rate]
-    movsd [rsp + 128], xmm0
-    call mlp_train 
-
-    mov r14, rax                ; trained weights
-    mov r15, rdx                ; trained biases
-
     lea rcx, [test_tensor]
     mov rdx, r14
     mov r8, r15
