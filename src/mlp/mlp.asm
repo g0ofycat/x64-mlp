@@ -75,6 +75,7 @@ mlp_feed_forward:
     jz .first_layer
 
     mov r8, [rbp + 64]            ; hidden_neurons
+
     jmp .do_layer
 
 ; @function .first_layer: r8 = input neurons
