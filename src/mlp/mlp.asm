@@ -75,7 +75,6 @@ mlp_feed_forward:
     jz .first_layer
 
     mov r8, [rbp + 64]            ; hidden_neurons
-
     jmp .do_layer
 
 ; @function .first_layer: r8 = input neurons
@@ -91,8 +90,8 @@ mlp_feed_forward:
     imul rax, [rbp + 48]          ; * batch_size
     lea r10, [r15 + rax * 4]      ; acts_curr
 
-    mov [rsp + 80], r8
-    mov [rsp + 88], r9
+    mov [rsp + 80], r8            ; save in_neurons
+    mov [rsp + 88], r9            ; save out_neurons
     mov [rsp + 96], r10           ; save acts_curr pointer
 
     mov rcx, rdx                  ; acts_prev
@@ -121,7 +120,7 @@ mlp_feed_forward:
     lea r13, [r13 + rax * 4]      ; advance weight pointer
     lea r14, [r14 + r9 * 4]       ; advance bias pointer
 
-    mov rdx, r10                  ; acts_prev = acts_curr for next layer
+    mov rdx, r10                  ; acts_prev = acts_curr pointer for next layer
 
     inc rsi
     jmp .loop_layers
@@ -131,7 +130,13 @@ mlp_feed_forward:
     mov rcx, rdx                  ; acts_prev
     mov rdx, r13                  ; weights
     mov r8, r14                   ; biases
-    mov r9, r15                   ; output buffer (reuse from start)
+
+    mov rax, [rbp + 72]           ; hidden_layers
+    imul rax, [rbp + 64]          ; * hidden_neurons
+    imul rax, [rbp + 48]          ; * batch_size
+    lea r9, [r15 + rax * 4]       ; output at end of buffer
+
+    mov [rsp + 96], r9            ; output pointer
 
     mov rax, [rbp + 48]
     mov [rsp + 32], rax           ; batch_size
@@ -144,7 +149,7 @@ mlp_feed_forward:
     movsd [rsp + 64], xmm0
     call mlp_forward_layer
 
-    xor rbx, rbx
+    xor rbx, rbx                  ; i = 0
 
 ; @function .softmax_loop: Apply softmax based on batch_size (xor rbx, rbx before)
 .softmax_loop:
@@ -153,7 +158,8 @@ mlp_feed_forward:
 
     mov rax, rbx
     imul rax, [rbp + 80]          ; sample * output_neurons
-    lea rcx, [r15 + rax*4]
+    mov r9, [rsp + 96]
+    lea rcx, [r9 + rax*4]
     mov rdx, rcx
     mov r8, [rbp + 80]
     call softmax
@@ -163,7 +169,7 @@ mlp_feed_forward:
 
 ; @function .softmax_done: Label when .softmax_loop is done
 .softmax_done:
-    mov rax, r15
+    mov rax, [rsp + 96]
 
     add rsp, 104
 
