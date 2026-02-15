@@ -125,6 +125,9 @@ softmax:
     mov r13, rdx
     mov rbx, r8
 
+    cmp rbx, 1
+    jle .single_element
+
     movss xmm6, [r12]
     xor r14, r14               ; i = 0
 
@@ -192,6 +195,11 @@ softmax:
 
     inc r14
     jmp .div_scalar
+
+; @function .single_element: 1 logit, skip softmax and copy to output array
+.single_element:
+    movss xmm0, [r12]
+    movss [r13], xmm0
 
 ; @function .done: Label when softmax is done
 .done:
