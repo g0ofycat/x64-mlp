@@ -223,9 +223,9 @@ mlp_train:
     mov r14, rcx                   ; input tensor
     mov r15, rdx                   ; target tensor
 
-    mov rbx, [rbp + 120]           ; epochs
+    mov qword [rbp - 56], 0        ; epochs (i = 0)
 
-    test rbx, rbx
+    cmp qword [rbp + 120], 0       ; epochs
     jz .done
 
 ; @function .epoch_loop: Epoch training loop
@@ -261,7 +261,7 @@ mlp_train:
     call cross_entropy_loss
 
     lea rcx, [fmt_cel]
-    mov rdx, rbx
+    mov rdx, [rbp - 56]
     movq xmm2, xmm0
     movq r8, xmm0
     call printf
@@ -325,15 +325,19 @@ mlp_train:
 
 ; @function .update_weights_call: Apply SGD to current layer weights
 .update_weights_call:
+    ; PRINT TWICE
+
     mov rcx, r10
     mov rdx, r11
     mov rax, r8
     imul rax, r9
-    mov r8, rax
+    mov [rbp - 64], rax
     movsd xmm0, [rbp + 128]        ; learning_rate
     call apply_sgd_step
 
-    mov rax, r8
+    ; PRINT ONCE
+
+    mov rax, [rbp - 64]
     shl rax, 2
     add r10, rax
     add r11, rax
@@ -343,6 +347,8 @@ mlp_train:
 
 ; @function .update_biases: Update biases for all layers
 .update_biases:
+    ; DOESNT PRINT
+
     xor rsi, rsi                   ; layer = 0
 
     mov r10, [rbp + 80]            ; bias_ptr
@@ -350,6 +356,8 @@ mlp_train:
 
 ; @function .update_biases_loop: Loop to update biases for all layers
 .update_biases_loop:
+    ; DOESNT PRINT
+
     mov rax, [rbp + 56]
     inc rax
 
@@ -366,12 +374,15 @@ mlp_train:
 
 ; @function .update_bias_call: Apply SGD to current layer biases
 .update_bias_call:
+    ; DOESNT PRINT
+
     mov rcx, r10
     mov rdx, r11
+    mov [rbp - 72], r8
     movsd xmm0, [rbp + 128]
     call apply_sgd_step
-
-    mov rax, r8
+    
+    mov rax, [rbp - 72]
     shl rax, 2
     add r10, rax
     add r11, rax
@@ -381,11 +392,17 @@ mlp_train:
 
 ; @function .epoch_done: Complete one epoch, continue or finish
 .epoch_done:
-    dec rbx
-    jnz .epoch_loop
+    ; DOESNT PRINT
+
+    inc qword [rbp - 56]
+    mov rax, [rbp + 120]
+    cmp [rbp - 56], rax            ; epochs
+    jl .epoch_loop
 
 ; @function .done: Label when mlp_train is done
 .done:
+    ; DOESNT PRINT
+
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
@@ -670,7 +687,7 @@ mlp_back_propagation:
     push rcx
     push rbx
 
-    mov rax, r13
+    mov rax, [rbp - 64]
     imul rax, [rbp + 56]
 
     mov rcx, 1
