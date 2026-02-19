@@ -352,7 +352,7 @@ mlp_train:
     xor rsi, rsi                   ; layer = 0
 
     mov r10, [rbp + 80]            ; bias_ptr
-    mov r11, [rbp + 96]           ; bias_grad_ptr
+    mov r11, [rbp + 96]            ; bias_grad_ptr
 
 ; @function .update_biases_loop: Loop to update biases for all layers
 .update_biases_loop:
@@ -381,7 +381,7 @@ mlp_train:
     mov [rbp - 72], r8
     movsd xmm0, [rbp + 128]
     call apply_sgd_step
-    
+
     mov rax, [rbp - 72]
     shl rax, 2
     add r10, rax
