@@ -11,7 +11,6 @@ extern malloc
 section .data
     one_f: dd 1.0
     two_f: dd 2.0
-    six_f: dd 6.0
 
     bias_init: dd 0.01
 
@@ -278,7 +277,7 @@ init_params:
     mov r13, rax
 
     cvtsi2ss xmm0, r13
-    movss xmm1, [six_f]
+    movss xmm1, [two_f]
     divss xmm1, xmm0
     sqrtss xmm0, xmm1 
     movss [rsp + 40], xmm0

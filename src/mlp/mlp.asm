@@ -257,6 +257,7 @@ mlp_train:
 
     mov [rbp - 8], rax             ; save predictions
 
+%if 0
     mov rcx, rax                   ; predictions
     mov rdx, r15                   ; targets
     mov r8, [rbp + 64]             ; output_neurons
@@ -268,6 +269,7 @@ mlp_train:
     movq xmm2, xmm0
     movq r8, xmm0
     call printf
+%endif
 
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
@@ -333,8 +335,13 @@ mlp_train:
     mov rax, r8
     imul rax, r9
     mov [rbp - 64], rax
-    movsd xmm0, [rbp + 128]        ; learning_rate
+    movsd xmm0, [rbp + 128]
+    mov [rbp - 16], r10            ; save weight_ptr
+    mov [rbp - 24], r11            ; save weight_grad_ptr
     call apply_sgd_step
+
+    mov r10, [rbp - 16]            ; restore weight_ptr
+    mov r11, [rbp - 24]            ; restore weight_grad_ptr
 
     mov rax, [rbp - 64]
     shl rax, 2
@@ -373,7 +380,12 @@ mlp_train:
     mov rdx, r11
     mov [rbp - 72], r8
     movsd xmm0, [rbp + 128]
+    mov [rbp - 16], r10            ; save bias_ptr
+    mov [rbp - 24], r11            ; save bias_grad_ptr
     call apply_sgd_step
+
+    mov r10, [rbp - 16]            ; restore bias_ptr
+    mov r11, [rbp - 24]            ; restore bias_grad_ptr
 
     mov rax, [rbp - 72]
     shl rax, 2

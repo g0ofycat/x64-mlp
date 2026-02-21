@@ -21,7 +21,7 @@ section .data
 
     ; @data: MLP Training
 
-    epochs: dq 10000
+    epochs: dq 200000
     learning_rate: dq 0.2
     enable_dropout: dq 0
     dropout_rate: dq 0.0

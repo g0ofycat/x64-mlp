@@ -212,7 +212,7 @@ softmax:
 
 ; =============== cross_entropy_loss ===============
 
-; @function cross_entropy_loss: Cross Entropy Loss Function
+; @function cross_entropy_loss: Cross Entropy Loss Function (Unused)
 ; @param: rcx - Pointer to prediction array
 ; @param: rdx - Pointer to label array
 ; @param: r8 - Array length
