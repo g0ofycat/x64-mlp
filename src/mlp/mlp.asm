@@ -225,7 +225,10 @@ mlp_train:
 
     mov qword [rbp - 56], 0        ; epochs (i = 0)
 
-    cmp qword [rbp + 120], 0       ; epochs
+    mov rax, [rbp + 120]
+    mov [rbp - 80], rax            ; epochs
+
+    cmp qword [rbp - 80], 0
     jz .done
 
 ; @function .epoch_loop: Epoch training loop
@@ -325,8 +328,6 @@ mlp_train:
 
 ; @function .update_weights_call: Apply SGD to current layer weights
 .update_weights_call:
-    ; PRINT TWICE
-
     mov rcx, r10
     mov rdx, r11
     mov rax, r8
@@ -334,8 +335,6 @@ mlp_train:
     mov [rbp - 64], rax
     movsd xmm0, [rbp + 128]        ; learning_rate
     call apply_sgd_step
-
-    ; PRINT ONCE
 
     mov rax, [rbp - 64]
     shl rax, 2
@@ -347,8 +346,6 @@ mlp_train:
 
 ; @function .update_biases: Update biases for all layers
 .update_biases:
-    ; DOESNT PRINT
-
     xor rsi, rsi                   ; layer = 0
 
     mov r10, [rbp + 80]            ; bias_ptr
@@ -356,8 +353,6 @@ mlp_train:
 
 ; @function .update_biases_loop: Loop to update biases for all layers
 .update_biases_loop:
-    ; DOESNT PRINT
-
     mov rax, [rbp + 56]
     inc rax
 
@@ -374,8 +369,6 @@ mlp_train:
 
 ; @function .update_bias_call: Apply SGD to current layer biases
 .update_bias_call:
-    ; DOESNT PRINT
-
     mov rcx, r10
     mov rdx, r11
     mov [rbp - 72], r8
@@ -392,17 +385,14 @@ mlp_train:
 
 ; @function .epoch_done: Complete one epoch, continue or finish
 .epoch_done:
-    ; DOESNT PRINT
-
     inc qword [rbp - 56]
-    mov rax, [rbp + 120]
+    mov rax, [rbp - 80]
+
     cmp [rbp - 56], rax            ; epochs
     jl .epoch_loop
 
 ; @function .done: Label when mlp_train is done
 .done:
-    ; DOESNT PRINT
-
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
@@ -841,7 +831,6 @@ mlp_forward_layer:
     mov rax, rbx
     imul rax, r11
     mov r8, rax
-
     call relu
 
     cmp qword [rbp + 72], 0
@@ -971,9 +960,6 @@ compute_weight_gradients:
     mov r13, rdx           ; delta
     mov r14, r8            ; grad_ptr
     mov r15, r9            ; batch_size
-
-    xor rax, rax
-    call printf            ; hacky workaround for windows 16 byte stack alignment, im guessing that any c lib (afaik) call which correctly aligns the stack will fix this. this is the only reliable workaround i have found and this 1 issue with compute_weight_gradients has took me at least 12 hours to solve. maybe i will fix this, seems like a waste of time though. no, this does not override any register, i've checked and there is no side effects found
 
     mov r10, [rbp + 48]    ; input_neurons
     mov r11, [rbp + 56]    ; output_neurons
