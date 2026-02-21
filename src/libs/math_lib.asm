@@ -109,7 +109,7 @@ relu_derivative:
 
 ; =============== softmax ===============
 
-; @function softmax: Softmax activaton function
+; @function softmax: Softmax activation function
 ; @param: rcx - Pointer to input array
 ; @param: rdx - Pointer to output array
 ; @param: r8 - Array length
@@ -119,7 +119,7 @@ softmax:
     push r13
     push r14
 
-    sub rsp, 88     ; todo: xmm6 xmm7 push stack (?)
+    sub rsp, 88
 
     mov r12, rcx
     mov r13, rdx
@@ -128,7 +128,7 @@ softmax:
     cmp rbx, 1
     jle .single_element
 
-    movss xmm6, [r12]
+    movss xmm4, [r12]          ; max
     xor r14, r14               ; i = 0
 
 ; @function .find_max_loop: Find the max number in rcx
@@ -137,15 +137,14 @@ softmax:
     jge .found_max
 
     movss xmm0, [r12 + r14*4]
-    maxss xmm6, xmm0
+    maxss xmm4, xmm0
 
     inc r14
-
     jmp .find_max_loop
 
-; @function .found_max: xor counter and xmm7
+; @function .found_max: xor counter and clear sum
 .found_max:
-    xorps xmm7, xmm7
+    xorps xmm5, xmm5           ; sum
     xor r14, r14
 
 ; @function .exp_loop: Loop to find exp sum
@@ -153,20 +152,19 @@ softmax:
     cmp r14, rbx
     jge .tensor_divide
 
-    ; exp(input[i] - max)
     movss xmm0, [r12 + r14*4]
-    subss xmm0, xmm6           ; x - max
-    call expf                  ; xmm0 = exp(xmm0)
+    subss xmm0, xmm4           ; x - max
+    call expf                  ; exp(xmm0)
 
-    movss [r13 + r14*4], xmm0  ; store exp result
-    addss xmm7, xmm0           ; sum += exp
+    movss [r13 + r14*4], xmm0
+    addss xmm5, xmm0           ; sum += exp
 
     inc r14
     jmp .exp_loop
 
-; @function .tensor_divide: SIMD Average calculate (4 SIMD)
+; @function .tensor_divide: SIMD divide (4 SIMD)
 .tensor_divide:
-    shufps xmm7, xmm7, 0
+    shufps xmm5, xmm5, 0
     xor r14, r14
 
     mov rax, rbx
@@ -178,7 +176,7 @@ softmax:
     jge .div_scalar
 
     movups xmm0, [r13 + r14*4]
-    divps xmm0, xmm7
+    divps xmm0, xmm5
     movups [r13 + r14*4], xmm0
 
     add r14, 4
@@ -190,7 +188,7 @@ softmax:
     jge .done
 
     movss xmm0, [r13 + r14*4]
-    divss xmm0, xmm7
+    divss xmm0, xmm5
     movss [r13 + r14*4], xmm0
 
     inc r14
@@ -218,7 +216,7 @@ softmax:
 ; @param: rcx - Pointer to prediction array
 ; @param: rdx - Pointer to label array
 ; @param: r8 - Array length
-; @return: xmm0 - Loss Value 
+; @return: xmm0 - Loss Value
 cross_entropy_loss:
     push rbx
     push r12
@@ -231,9 +229,7 @@ cross_entropy_loss:
     mov r13, rdx
     mov rbx, r8
 
-    movss xmm7, [cel_epsilon]
-
-    xorps xmm6, xmm6
+    xorps xmm4, xmm4            ; accumulator
     xor r14, r14                ; i = 0
 
 ; @function .loop: Loop to compute Cross Entropy Loss
@@ -241,19 +237,19 @@ cross_entropy_loss:
     cmp r14, rbx
     jge .done
 
-    movss xmm0, [r12 + r14*4]   ; prediction
-    maxss xmm0, xmm7
-    call logf                   ; xmm0 = log(prediction)
+    movss xmm0, [r12 + r14*4]        ; prediction
+    maxss xmm0, dword [cel_epsilon]  ; clamp
+    call logf                        ; log(prediction)
 
-    mulss xmm0, [r13 + r14*4]   ; label * log(pred)
-    subss xmm6, xmm0            ; loss -= label * log(pred)
+    mulss xmm0, [r13 + r14*4]        ; label * log(pred)
+    subss xmm4, xmm0                 ; loss -= label * log(pred)
 
     inc r14
     jmp .loop
 
 ; @function .done: Label when cross_entropy_loss is done
 .done:
-    movss xmm0, xmm6
+    movss xmm0, xmm4
 
     add rsp, 40
 

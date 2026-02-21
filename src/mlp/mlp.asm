@@ -232,8 +232,8 @@ mlp_train:
 .epoch_loop:
     mov rcx, r14                   ; input tensor
 
-    mov rdx, [rbp + 88]            ; weights
-    mov r8, [rbp + 96]             ; biases
+    mov rdx, [rbp + 72]            ; weights
+    mov r8, [rbp + 80]             ; biases
     mov r9, [rbp + 104]            ; activations
 
     mov rax, r12
@@ -756,7 +756,7 @@ mlp_forward_layer:
 
     mov rax, rsi
     imul rax, r11
-    lea rdi, [r15, rax*4]
+    lea rdi, [r15 + rax*4]
 
     xor r8, r8
 
@@ -913,7 +913,7 @@ mlp_backward_layer:
     mov rcx, r13               ; activations
     mov rdx, [rbp + 88]        ; this delta
     mov rax, [rbp + 48]
-    imul rax, [rbp + 56]
+    imul rax, [rbp + 64]
     mov r8, rax                ; batch * neurons
     call relu_derivative
 
@@ -931,7 +931,7 @@ mlp_backward_layer:
     mov rcx, [rbp + 88]        ; this delta
     mov rdx, [rbp + 80]        ; bias gradients
     mov r8, [rbp + 48]         ; batch size
-    mov r9, [rbp + 56]         ; input neurons
+    mov r9, [rbp + 64]         ; output neurons
     call compute_bias_gradients
 
     mov rax, [rbp + 88]
@@ -971,11 +971,12 @@ compute_weight_gradients:
     mov r13, rdx           ; delta
     mov r14, r8            ; grad_ptr
     mov r15, r9            ; batch_size
-    mov r10, [rbp + 48]    ; input_neurons
-    mov r11, [rbp + 56]    ; output_neurons
 
     xor rax, rax
     call printf            ; hacky workaround for windows 16 byte stack alignment, im guessing that any c lib (afaik) call which correctly aligns the stack will fix this. this is the only reliable workaround i have found and this 1 issue with compute_weight_gradients has took me at least 12 hours to solve. maybe i will fix this, seems like a waste of time though. no, this does not override any register, i've checked and there is no side effects found
+
+    mov r10, [rbp + 48]    ; input_neurons
+    mov r11, [rbp + 56]    ; output_neurons
 
     xor rsi, rsi           ; batch counter
 
@@ -1145,8 +1146,8 @@ compute_hidden_error:
 
     sub rsp, 24
 
-    mov r10, [rbp + 40]
-    mov r11, [rbp + 48]
+    mov r10, [rbp + 48]
+    mov r11, [rbp + 56]
 
     xor rsi, rsi           ; b = 0
 
@@ -1157,16 +1158,11 @@ compute_hidden_error:
 
     xor rbx, rbx           ; i = 0 (input neurons)
 
-; @function .next_batch: Start the next batch
-.next_batch:
-    inc rsi
-    jmp .start_batch_loop
-
 ; @function .in_loop: Loop to calculate current batch hidden error
 .in_loop:
     cmp rbx, r10
     jge .next_batch
-    
+
     mov rax, rsi
     imul rax, r11
     lea r12, [rcx + rax*4]
@@ -1178,6 +1174,13 @@ compute_hidden_error:
     xorps xmm0, xmm0
 
     xor rdi, rdi           ; j = 0 (output neurons)
+
+    jmp .out_loop_simd
+
+; @function .next_batch: Start the next batch
+.next_batch:
+    inc rsi
+    jmp .start_batch_loop
 
 ; @function .out_loop_simd: SIMD Dot Product Calculation (4 SIMD)
 .out_loop_simd:

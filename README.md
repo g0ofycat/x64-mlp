@@ -1,6 +1,6 @@
 # x64-mlp
 
-Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64** *(Windows 11)*
+Classification Multi-Layered Perceptron w/ SGD implementation made in **pure x64** *(Windows 11)*. **UNFINISHED: 90% DONE**
 
 ## Assembly Information:
 
