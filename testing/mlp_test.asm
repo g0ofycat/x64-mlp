@@ -10,6 +10,7 @@ extern learning_rate
 extern enable_dropout
 extern dropout_rate
 extern batch_size
+extern momentum
 
 extern mlp_feed_forward
 extern mlp_train
@@ -18,6 +19,9 @@ extern mlp_back_propagation
 extern weight_grad_base_ptr
 extern bias_grad_base_ptr
 extern grad_base_ptr
+
+extern weight_velocity
+extern bias_velocity
 
 extern activation_buffer
 extern delta_buffer 
@@ -33,7 +37,7 @@ extern exit
 section .data
     input_tensor: dd 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0
 
-    test_tensor: dd 0.0, 1.0
+    test_tensor: dd 1.0, 1.0
 
     target_tensor: dd 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0
 
@@ -53,7 +57,7 @@ main:
     push r14
     push r15
 
-    sub rsp, 144
+    sub rsp, 176
 
     call init_random
 
@@ -97,7 +101,13 @@ main:
     mov [rsp + 120], rax
     movsd xmm0, [dropout_rate]
     movsd [rsp + 128], xmm0
-    call mlp_train 
+    lea rax, [weight_velocity]
+    mov [rsp + 136], rax
+    lea rax, [bias_velocity]
+    mov [rsp + 144], rax
+    movsd xmm0, [momentum]
+    movsd [rsp + 152], xmm0
+    call mlp_train
 
     mov r14, rax                ; trained weights
     mov r15, rdx                ; trained biases
@@ -146,7 +156,7 @@ main:
     jmp .print_loop 
 
 .done:
-    add rsp, 144
+    add rsp, 176
 
     pop r15
     pop r14

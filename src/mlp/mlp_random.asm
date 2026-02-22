@@ -131,7 +131,7 @@ init_params:
     push rdi
     push rsi
 
-    sub rsp, 80
+    sub rsp, 96
 
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
@@ -246,7 +246,7 @@ init_params:
     mov rax, r14
     mov rdx, r15
 
-    add rsp, 80
+    add rsp, 96
 
     pop rsi
     pop rdi
@@ -258,7 +258,7 @@ init_params:
 
     ret
 
-; =============== INTERNAL HELPERS ===============
+; =============== .he_fill ===============
 
 ; @function .he_fill: Fill a buffer with He Uniform distribution (in-place)
 ; @param: rcx - Buffer pointer

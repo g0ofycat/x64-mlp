@@ -56,7 +56,7 @@ mlp_feed_forward:
     push r14
     push r15
 
-    sub rsp, 104
+    sub rsp, 112
 
     mov r12, rcx                  ; input pointer
     mov r13, rdx                  ; weight pointer
@@ -172,7 +172,7 @@ mlp_feed_forward:
 .softmax_done:
     mov rax, [rsp + 96]
 
-    add rsp, 104
+    add rsp, 112
 
     pop r15
     pop r14
@@ -203,6 +203,9 @@ mlp_feed_forward:
 ; @param: [rbp+112] - Learning rate
 ; @param: [rbp+120] - Apply dropout (0 or 1)
 ; @param: [rbp+128] - If dropout, dropout rate
+; @param: [rbp+136] - Weight velocity buffer
+; @param: [rbp+144] - Bias velocity buffer
+; @param: [rbp+152] - Momentum
 ; @return: rax - Weight tensor pointer
 ; @return: rdx - Bias tensor pointer
 mlp_train:
@@ -216,7 +219,7 @@ mlp_train:
     push r14
     push r15
 
-    sub rsp, 144
+    sub rsp, 176
 
     mov r12, r8                    ; batch_size
     mov r13, r9                    ; input_neurons
@@ -302,6 +305,7 @@ mlp_train:
 
     mov r10, [rbp + 72]            ; weight_ptr
     mov r11, [rbp + 88]            ; weight_grad_ptr
+    mov rbx, [rbp + 152]           ; weight_velocity_ptr
 
 ; @function .update_weights_loop: Loop to update weights for all layers
 .update_weights_loop:
@@ -335,20 +339,29 @@ mlp_train:
     mov rax, r8
     imul rax, r9
     mov [rbp - 64], rax
+    mov r8, rax
+    mov [rsp + 32], rbx
     movsd xmm0, [rbp + 128]
-    mov [rbp - 16], r10            ; save weight_ptr
-    mov [rbp - 24], r11            ; save weight_grad_ptr
-    call apply_sgd_step
+    cvtsd2ss xmm0, xmm0
+    movss xmm1, [rbp + 168]
+    cvtsd2ss xmm1, xmm1
+    mov [rbp - 16], r10
+    mov [rbp - 24], r11
+    mov [rbp - 32], rbx
+    call apply_optimizers_step
 
-    mov r10, [rbp - 16]            ; restore weight_ptr
-    mov r11, [rbp - 24]            ; restore weight_grad_ptr
-
+    mov r10, [rbp - 16]
+    mov r11, [rbp - 24]
+    mov rbx, [rbp - 32]
     mov rax, [rbp - 64]
+
     shl rax, 2
     add r10, rax
     add r11, rax
+    add rbx, rax
 
     inc rsi
+
     jmp .update_weights_loop
 
 ; @function .update_biases: Update biases for all layers
@@ -357,6 +370,7 @@ mlp_train:
 
     mov r10, [rbp + 80]            ; bias_ptr
     mov r11, [rbp + 96]            ; bias_grad_ptr
+    mov rbx, [rbp + 160]           ; bias_velocity_ptr
 
 ; @function .update_biases_loop: Loop to update biases for all layers
 .update_biases_loop:
@@ -379,20 +393,29 @@ mlp_train:
     mov rcx, r10
     mov rdx, r11
     mov [rbp - 72], r8
+    mov r8, [rbp - 72]
+    mov [rsp + 32], rbx
     movsd xmm0, [rbp + 128]
-    mov [rbp - 16], r10            ; save bias_ptr
-    mov [rbp - 24], r11            ; save bias_grad_ptr
-    call apply_sgd_step
+    cvtsd2ss xmm0, xmm0
+    movss xmm1, [rbp + 168]
+    cvtsd2ss xmm1, xmm1
+    mov [rbp - 16], r10
+    mov [rbp - 24], r11
+    mov [rbp - 32], rbx
+    call apply_optimizers_step
 
-    mov r10, [rbp - 16]            ; restore bias_ptr
-    mov r11, [rbp - 24]            ; restore bias_grad_ptr
-
+    mov r10, [rbp - 16]
+    mov r11, [rbp - 24]
+    mov rbx, [rbp - 32]
     mov rax, [rbp - 72]
+
     shl rax, 2
     add r10, rax
     add r11, rax
+    add rbx, rax
 
     inc rsi
+
     jmp .update_biases_loop
 
 ; @function .epoch_done: Complete one epoch, continue or finish
@@ -408,7 +431,7 @@ mlp_train:
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
-    add rsp, 144
+    add rsp, 176
 
     pop r15
     pop r14
@@ -449,7 +472,7 @@ mlp_back_propagation:
     push r14
     push r15
 
-    sub rsp, 120
+    sub rsp, 128
 
     mov r12, r8                     ; batch_size
     mov r13, r9                     ; input_neurons
@@ -671,7 +694,7 @@ mlp_back_propagation:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 120
+    add rsp, 128
 
     pop r15
     pop r14
@@ -738,7 +761,7 @@ mlp_forward_layer:
     push r14
     push r15
 
-    sub rsp, 88
+    sub rsp, 96
 
     mov r12, rcx
     mov r13, rdx
@@ -861,7 +884,7 @@ mlp_forward_layer:
 .done:
     mov rax, r15
 
-    add rsp, 88
+    add rsp, 96
 
     pop r15
     pop r14
@@ -895,7 +918,7 @@ mlp_backward_layer:
     push r12
     push r13
 
-    sub rsp, 48
+    sub rsp, 56
 
     mov r12, rcx               ; input activations
     mov r13, rdx               ; current activations
@@ -937,7 +960,7 @@ mlp_backward_layer:
 
     mov rax, [rbp + 88]
 
-    add rsp, 48
+    add rsp, 56
 
     pop r13
     pop r12
@@ -966,7 +989,7 @@ compute_weight_gradients:
     push r14
     push r15
 
-    sub rsp, 72
+    sub rsp, 80
 
     mov r12, rcx           ; activations
     mov r13, rdx           ; delta
@@ -1050,7 +1073,7 @@ compute_weight_gradients:
 
 ; @function .done: Label when compute_weight_gradients is done
 .done:
-    add rsp, 72
+    add rsp, 80
 
     pop r15
     pop r14
@@ -1077,7 +1100,7 @@ compute_bias_gradients:
     push rbx
     push rsi
 
-    sub rsp, 32
+    sub rsp, 40
 
     xor rbx, rbx           ; j = 0 (output neuron loop)
 
@@ -1115,7 +1138,7 @@ compute_bias_gradients:
 
 ; @function .done: Label when compute_bias_gradients is done
 .done:
-    add rsp, 32
+    add rsp, 40
 
     pop rsi
     pop rbx
@@ -1142,7 +1165,7 @@ compute_hidden_error:
     push r12
     push r13
 
-    sub rsp, 24
+    sub rsp, 32
 
     mov r10, [rbp + 48]
     mov r11, [rbp + 56]
@@ -1223,7 +1246,7 @@ compute_hidden_error:
 
 ; @function .done: Label when compute_hidden_error is done
 .done:
-    add rsp, 24
+    add rsp, 32
 
     pop r13
     pop r12
@@ -1314,17 +1337,22 @@ compute_output_error:
 .done:
     ret
 
-; =============== apply_sgd_step ===============
+; =============== apply_optimizers_step ===============
 
-; @function apply_sgd_step: Apply optimizer (in-place)
-; @param: rcx - Pointer to Weight tensor
-; @param: rdx - Pointer to Gradient tensor
-; @param: r8  - Total number of elements
-; @param: xmm0 - Learning Rate (scalar float)
-apply_sgd_step:
+; @function apply_optimizers_step: Apply optimizers (in-place)
+; @param: rcx - Weight / bias pointer
+; @param: rdx - Gradient pointer
+; @param: r8 - Element count
+; @param: [rsp+32] - Velocity pointer
+; @param: xmm0 - Learning rate
+; @param: xmm1 - Momentum
+apply_optimizers_step:
+    mov r9, [rsp + 32]             ; velocity ptr
+
     shufps xmm0, xmm0, 0
-    xor r10, r10
+    shufps xmm1, xmm1, 0
 
+    xor r10, r10
     mov rax, r8
     and rax, -4
 
@@ -1333,12 +1361,15 @@ apply_sgd_step:
     cmp r10, rax
     jge .scalar_tail
 
-    movups xmm1, [rdx + r10*4]
-    mulps xmm1, xmm0
-
-    movups xmm2, [rcx + r10*4]
-    subps xmm2, xmm1
-    movups [rcx + r10*4], xmm2
+    movups xmm2, [r9 + r10*4]      ; vel
+    mulps xmm2, xmm1               ; vel * momentum
+    movups xmm3, [rdx + r10*4]     ; grad
+    mulps xmm3, xmm0               ; grad * lr
+    subps xmm2, xmm3               ; vel = vel*m - lr*grad
+    movups [r9 + r10*4], xmm2      ; store vel
+    movups xmm3, [rcx + r10*4]     ; weight
+    addps xmm3, xmm2               ; w += vel
+    movups [rcx + r10*4], xmm3
 
     add r10, 4
     jmp .simd_loop
@@ -1348,16 +1379,19 @@ apply_sgd_step:
     cmp r10, r8
     jge .done
 
-    movss xmm1, [rdx + r10*4]
-    mulss xmm1, xmm0
-    movss xmm2, [rcx + r10*4]
-
-    subss xmm2, xmm1
-    movss [rcx + r10*4], xmm2
+    movss xmm2, [r9 + r10*4]
+    mulss xmm2, xmm1
+    movss xmm3, [rdx + r10*4]
+    mulss xmm3, xmm0
+    subss xmm2, xmm3
+    movss [r9 + r10*4], xmm2
+    movss xmm3, [rcx + r10*4]
+    addss xmm3, xmm2
+    movss [rcx + r10*4], xmm3
 
     inc r10
     jmp .scalar_tail
 
-; @function .done: Label when apply_sgd_step is done
+; @function .done: Label when apply_optimizers_step is done
 .done:
     ret
