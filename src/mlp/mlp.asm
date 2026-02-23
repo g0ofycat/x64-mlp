@@ -12,13 +12,13 @@ extern cross_entropy_loss
 extern apply_dropout
 extern print_stack_offsets
 
-; @extern: C Libs
+; @extern: External Data
 
-extern printf
+extern clip_grad_min
+extern clip_grad_max
 
-; @section: String Data
-section .data
-    fmt_cel: db "Epoch: %d | Loss: %.6f", 10, 0
+extern clip_grad_min_ps
+extern clip_grad_max_ps
 
 ; @section: Global labels
 section .text
@@ -51,6 +51,7 @@ mlp_feed_forward:
     mov rbp, rsp
 
     push rbx
+    push rsi
     push r12
     push r13
     push r14
@@ -155,7 +156,7 @@ mlp_feed_forward:
 ; @function .softmax_loop: Apply softmax based on batch_size (xor rbx, rbx before)
 .softmax_loop:
     cmp rbx, [rbp + 48]           ; batch_size
-    jge .softmax_done
+    jge .done
 
     mov rax, rbx
     imul rax, [rbp + 80]          ; sample * output_neurons
@@ -168,8 +169,8 @@ mlp_feed_forward:
     inc rbx
     jmp .softmax_loop 
 
-; @function .softmax_done: Label when .softmax_loop is done
-.softmax_done:
+; @function .done: Label when mlp_feed_forward is done
+.done:
     mov rax, [rsp + 96]
 
     add rsp, 112
@@ -178,6 +179,7 @@ mlp_feed_forward:
     pop r14
     pop r13
     pop r12
+    pop rsi
     pop rbx
     pop rbp
 
@@ -260,7 +262,6 @@ mlp_train:
 
     mov [rbp - 8], rax             ; save predictions
 
-%if 0
     mov rcx, rax                   ; predictions
     mov rdx, r15                   ; targets
     mov r8, [rbp + 64]             ; output_neurons
@@ -272,7 +273,6 @@ mlp_train:
     movq xmm2, xmm0
     movq r8, xmm0
     call printf
-%endif
 
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
@@ -330,6 +330,7 @@ mlp_train:
     cmp rsi, rax
     jl .update_weights_call
 
+    mov r8, [rbp + 48]             ; hidden_neurons
     mov r9, [rbp + 64]             ; output_neurons
 
 ; @function .update_weights_call: Apply SGD to current layer weights
@@ -343,7 +344,7 @@ mlp_train:
     mov [rsp + 32], rbx
     movsd xmm0, [rbp + 128]
     cvtsd2ss xmm0, xmm0
-    movss xmm1, [rbp + 168]
+    movsd xmm1, [rbp + 168]
     cvtsd2ss xmm1, xmm1
     mov [rbp - 16], r10
     mov [rbp - 24], r11
@@ -366,7 +367,7 @@ mlp_train:
 
 ; @function .update_biases: Update biases for all layers
 .update_biases:
-    xor rsi, rsi                   ; layer = 0
+    xor rsi, rsi                   ; layer = 0 
 
     mov r10, [rbp + 80]            ; bias_ptr
     mov r11, [rbp + 96]            ; bias_grad_ptr
@@ -397,7 +398,7 @@ mlp_train:
     mov [rsp + 32], rbx
     movsd xmm0, [rbp + 128]
     cvtsd2ss xmm0, xmm0
-    movss xmm1, [rbp + 168]
+    movsd xmm1, [rbp + 168]
     cvtsd2ss xmm1, xmm1
     mov [rbp - 16], r10
     mov [rbp - 24], r11
@@ -1347,7 +1348,10 @@ compute_output_error:
 ; @param: xmm0 - Learning rate
 ; @param: xmm1 - Momentum
 apply_optimizers_step:
-    mov r9, [rsp + 32]             ; velocity ptr
+    push rbp
+    mov rbp, rsp
+
+    mov r9, [rbp + 48]             ; velocity ptr
 
     shufps xmm0, xmm0, 0
     shufps xmm1, xmm1, 0
@@ -1361,14 +1365,20 @@ apply_optimizers_step:
     cmp r10, rax
     jge .scalar_tail
 
-    movups xmm2, [r9 + r10*4]      ; vel
-    mulps xmm2, xmm1               ; vel * momentum
-    movups xmm3, [rdx + r10*4]     ; grad
-    mulps xmm3, xmm0               ; grad * lr
-    subps xmm2, xmm3               ; vel = vel*m - lr*grad
-    movups [r9 + r10*4], xmm2      ; store vel
-    movups xmm3, [rcx + r10*4]     ; weight
-    addps xmm3, xmm2               ; w += vel
+    movups xmm2, [r9 + r10*4]           ; vel
+    mulps xmm2, xmm1                    ; vel * momentum
+
+    movups xmm3, [rdx + r10*4]          ; grad[i...i+3]
+    movaps xmm4, xmm3                   ; copy
+    minps  xmm4, [clip_grad_max_ps]     ; clip high
+    maxps  xmm4, [clip_grad_min_ps]     ; clip low
+    movaps xmm3, xmm4                   ; clipped grad
+
+    mulps xmm3, xmm0                    ; grad * lr
+    subps xmm2, xmm3                    ; vel = vel*m - lr*grad
+    movups [r9 + r10*4], xmm2           ; store vel
+    movups xmm3, [rcx + r10*4]          ; weight
+    addps xmm3, xmm2                    ; w += vel
     movups [rcx + r10*4], xmm3
 
     add r10, 4
@@ -1381,6 +1391,12 @@ apply_optimizers_step:
 
     movss xmm2, [r9 + r10*4]
     mulss xmm2, xmm1
+
+    movss xmm4, [clip_grad_max]
+    movss xmm5, [clip_grad_min]
+    minss xmm3, xmm4
+    maxss xmm3, xmm5
+
     movss xmm3, [rdx + r10*4]
     mulss xmm3, xmm0
     subss xmm2, xmm3
@@ -1394,4 +1410,6 @@ apply_optimizers_step:
 
 ; @function .done: Label when apply_optimizers_step is done
 .done:
+    pop rbp
+
     ret

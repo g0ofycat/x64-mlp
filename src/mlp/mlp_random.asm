@@ -11,6 +11,7 @@ extern malloc
 section .data
     one_f: dd 1.0
     two_f: dd 2.0
+    six_f: dd 6.0
 
     bias_init: dd 0.01
 
@@ -185,7 +186,7 @@ init_params:
 
     mov rax, [rbp - 8]
 
-    call .he_fill
+    call he_fill
 
     mov rax, [rbp - 8]
     imul rax, [rbp - 16]
@@ -207,7 +208,7 @@ init_params:
     mov rdx, [rbp - 16]
     imul rdx, [rbp - 16]
 
-    call .he_fill
+    call he_fill
 
     mov rax, [rbp - 16]
     imul rax, [rbp - 16]
@@ -225,7 +226,7 @@ init_params:
 
     mov rdx, [rbp - 16]
     imul rdx, [rbp - 32]
-    call .he_fill
+    call he_fill
 
     mov rdi, r15
     movss xmm0, [bias_init]
@@ -234,15 +235,15 @@ init_params:
 ; @function .bias_loop: Fill bias array with bias_init
 .bias_loop:
     cmp r10, r13
-    jge .bias_done
+    jge .done
 
     movss [rdi + r10*4], xmm0
     inc r10
 
     jmp .bias_loop
 
-; @function .bias_done: Label when .bias_loop is done
-.bias_done:
+; @function .done: Label when init_params is done
+.done:
     mov rax, r14
     mov rdx, r15
 
@@ -258,13 +259,13 @@ init_params:
 
     ret
 
-; =============== .he_fill ===============
+; =============== he_fill ===============
 
-; @function .he_fill: Fill a buffer with He Uniform distribution (in-place)
+; @function he_fill: Fill a buffer with He Uniform distribution (in-place)
 ; @param: rcx - Buffer pointer
 ; @param: rdx - Element count
 ; @param: rax - fan_in (for limit calculation)
-.he_fill:
+he_fill:
     push rbx
     push r12
     push r13
@@ -277,7 +278,7 @@ init_params:
     mov r13, rax
 
     cvtsi2ss xmm0, r13
-    movss xmm1, [two_f]
+    movss xmm1, [six_f]
     divss xmm1, xmm0
     sqrtss xmm0, xmm1 
     movss [rsp + 40], xmm0
@@ -297,7 +298,7 @@ init_params:
     divss xmm0, [rand_max_float]
     mulss xmm0, [two_f]
     subss xmm0, [one_f]
-    mulss xmm0, [rsp + 40]      ; todo: check if rand overrides xmm0
+    mulss xmm0, [rsp + 40]
 
     movss [rbx + r14*4], xmm0
 

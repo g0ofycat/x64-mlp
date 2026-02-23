@@ -10,13 +10,20 @@ section .data
     global learning_rate
     global enable_dropout
     global dropout_rate
+
+    global clip_grad_min
+    global clip_grad_max
+
+    global clip_grad_min_ps
+    global clip_grad_max_ps
+
     global batch_size
     global momentum
 
     ; @data: MLP Architecture
 
     input_neurons: dq 2
-    hidden_neurons: dq 8
+    hidden_neurons: dq 3
     hidden_layers: dq 1
     output_neurons: dq 2
 
@@ -26,6 +33,12 @@ section .data
     learning_rate: dq 0.01
     enable_dropout: dq 0
     dropout_rate: dq 0.0
+
+    clip_grad_min_ps: dd -1.0, -1.0, -1.0, -1.0
+    clip_grad_max_ps: dd 1.0, 1.0, 1.0, 1.0
+
+    clip_grad_min: dd -1.0
+    clip_grad_max: dd 1.0
 
     ; @data: Optimizer Settings
 
