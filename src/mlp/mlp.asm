@@ -262,18 +262,6 @@ mlp_train:
 
     mov [rbp - 8], rax             ; save predictions
 
-    mov rcx, rax                   ; predictions
-    mov rdx, r15                   ; targets
-    mov r8, [rbp + 64]             ; output_neurons
-    imul r8, r12                   ; * batch_size = total length
-    call cross_entropy_loss
-
-    lea rcx, [fmt_cel]
-    mov rdx, [rbp - 56]
-    movq xmm2, xmm0
-    movq r8, xmm0
-    call printf
-
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
     mov r8, r12                    ; batch_size
@@ -367,7 +355,7 @@ mlp_train:
 
 ; @function .update_biases: Update biases for all layers
 .update_biases:
-    xor rsi, rsi                   ; layer = 0 
+    xor rsi, rsi                   ; layer = 0
 
     mov r10, [rbp + 80]            ; bias_ptr
     mov r11, [rbp + 96]            ; bias_grad_ptr
