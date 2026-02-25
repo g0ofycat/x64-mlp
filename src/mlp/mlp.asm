@@ -329,7 +329,7 @@ mlp_train:
     imul rax, r9
     mov [rbp - 64], rax
     mov r8, rax
-    mov [rsp + 32], rbx
+    mov r9, rbx
     movsd xmm0, [rbp + 128]
     cvtsd2ss xmm0, xmm0
     movsd xmm1, [rbp + 168]
@@ -383,7 +383,7 @@ mlp_train:
     mov rdx, r11
     mov [rbp - 72], r8
     mov r8, [rbp - 72]
-    mov [rsp + 32], rbx
+    mov r9, rbx
     movsd xmm0, [rbp + 128]
     cvtsd2ss xmm0, xmm0
     movsd xmm1, [rbp + 168]
@@ -1332,14 +1332,12 @@ compute_output_error:
 ; @param: rcx - Weight / bias pointer
 ; @param: rdx - Gradient pointer
 ; @param: r8 - Element count
-; @param: [rsp+32] - Velocity pointer
+; @param: r9 - Velocity pointer
 ; @param: xmm0 - Learning rate
 ; @param: xmm1 - Momentum
 apply_optimizers_step:
     push rbp
     mov rbp, rsp
-
-    mov r9, [rbp + 48]             ; velocity ptr
 
     shufps xmm0, xmm0, 0
     shufps xmm1, xmm1, 0
@@ -1353,21 +1351,18 @@ apply_optimizers_step:
     cmp r10, rax
     jge .scalar_tail
 
-    movups xmm2, [r9 + r10*4]           ; vel
+    movups xmm2, [r9 + r10*4]           ; vel[i..i+3]
     mulps xmm2, xmm1                    ; vel * momentum
-
-    movups xmm3, [rdx + r10*4]          ; grad[i...i+3]
-    movaps xmm4, xmm3                   ; copy
-    minps  xmm4, [clip_grad_max_ps]     ; clip high
-    maxps  xmm4, [clip_grad_min_ps]     ; clip low
-    movaps xmm3, xmm4                   ; clipped grad
-
-    mulps xmm3, xmm0                    ; grad * lr
-    subps xmm2, xmm3                    ; vel = vel*m - lr*grad
+    movups xmm3, [rdx + r10*4]          ; grad[i..i+3]
+    movaps xmm4, xmm3                   ; copy for clipping
+    minps xmm4, [clip_grad_max_ps]      ; clip high
+    maxps xmm4, [clip_grad_min_ps]      ; clip low
+    mulps xmm4, xmm0                    ; clipped_grad * lr
+    subps xmm2, xmm4                    ; vel = vel*m - lr*grad
     movups [r9 + r10*4], xmm2           ; store vel
-    movups xmm3, [rcx + r10*4]          ; weight
+    movups xmm3, [rcx + r10*4]          ; weight[i..i+3]
     addps xmm3, xmm2                    ; w += vel
-    movups [rcx + r10*4], xmm3
+    movups [rcx + r10*4], xmm3          ; store weight 
 
     add r10, 4
     jmp .simd_loop
@@ -1377,23 +1372,20 @@ apply_optimizers_step:
     cmp r10, r8
     jge .done
 
-    movss xmm2, [r9 + r10*4]
-    mulss xmm2, xmm1
-
-    movss xmm4, [clip_grad_max]
-    movss xmm5, [clip_grad_min]
-    minss xmm3, xmm4
-    maxss xmm3, xmm5
-
-    movss xmm3, [rdx + r10*4]
-    mulss xmm3, xmm0
-    subss xmm2, xmm3
-    movss [r9 + r10*4], xmm2
-    movss xmm3, [rcx + r10*4]
-    addss xmm3, xmm2
-    movss [rcx + r10*4], xmm3
+    movss xmm2, [r9 + r10*4]            ; vel[i]
+    mulss xmm2, xmm1                    ; vel * momentum
+    movss xmm3, [rdx + r10*4]           ; grad[i]
+    minss xmm3, [clip_grad_max]         ; clip high
+    maxss xmm3, [clip_grad_min]         ; clip low
+    mulss xmm3, xmm0                    ; clipped_grad * lr
+    subss xmm2, xmm3                    ; vel = vel*m - lr*grad
+    movss [r9 + r10*4], xmm2            ; store vel
+    movss xmm3, [rcx + r10*4]           ; weight[i]
+    addss xmm3, xmm2                    ; w += vel
+    movss [rcx + r10*4], xmm3           ; store weight
 
     inc r10
+
     jmp .scalar_tail
 
 ; @function .done: Label when apply_optimizers_step is done
