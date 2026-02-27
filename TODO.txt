@@ -1,1 +1,0 @@
-only bug ive found is where r12 and r13 (4 and 2) are overwritten with 2 and 3 after call mlp_backpropagation in mlp_train which causes apply_optimizers_step recieve bad params. potential bug(s) are any registers used that are used when calling aos. if i cant find what overwrites then ill just move r12 and r13 to local stack offsets

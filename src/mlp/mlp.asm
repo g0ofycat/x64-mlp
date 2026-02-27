@@ -216,18 +216,16 @@ mlp_train:
 
     push rbx
     push rsi
-    push r12
-    push r13
     push r14
     push r15
 
     sub rsp, 176
 
-    mov r12, r8                    ; batch_size
-    mov r13, r9                    ; input_neurons
     mov r14, rcx                   ; input tensor
     mov r15, rdx                   ; target tensor
 
+    mov [rbp - 40], r8             ; batch_size
+    mov [rbp - 48], r9             ; input_neurons
     mov qword [rbp - 56], 0        ; epochs (i = 0)
 
     mov rax, [rbp + 120]
@@ -244,9 +242,9 @@ mlp_train:
     mov r8, [rbp + 80]             ; biases
     mov r9, [rbp + 104]            ; activations
 
-    mov rax, r12
+    mov rax, [rbp - 40]
     mov [rsp + 32], rax            ; batch_size
-    mov rax, r13
+    mov rax, [rbp - 48]
     mov [rsp + 40], rax            ; input_neurons
     mov rax, [rbp + 48]
     mov [rsp + 48], rax            ; hidden_neurons
@@ -264,8 +262,8 @@ mlp_train:
 
     mov rcx, r14                   ; input tensor
     mov rdx, r15                   ; target tensor
-    mov r8, r12                    ; batch_size
-    mov r9, r13                    ; input_neurons
+    mov r8, [rbp - 40]             ; batch_size
+    mov r9, [rbp - 48]             ; input_neurons
 
     mov rax, [rbp - 8]
     mov [rsp + 32], rax            ; predictions
@@ -303,7 +301,7 @@ mlp_train:
     cmp rsi, rax
     jge .update_biases
 
-    mov r8, r13                    ; default: input_neurons
+    mov r8, [rbp - 48]             ; default: input_neurons
 
     test rsi, rsi
     jz .update_in_set
@@ -334,14 +332,14 @@ mlp_train:
     cvtsd2ss xmm0, xmm0
     movsd xmm1, [rbp + 168]
     cvtsd2ss xmm1, xmm1
-    mov [rbp - 16], r10
-    mov [rbp - 24], r11
-    mov [rbp - 32], rbx
+    mov [rbp - 88], r10
+    mov [rbp - 96], r11
+    mov [rbp - 104], rbx
     call apply_optimizers_step
 
-    mov r10, [rbp - 16]
-    mov r11, [rbp - 24]
-    mov rbx, [rbp - 32]
+    mov r10, [rbp - 88]
+    mov r11, [rbp - 96]
+    mov rbx, [rbp - 104]
     mov rax, [rbp - 64]
 
     shl rax, 2
@@ -387,14 +385,14 @@ mlp_train:
     cvtsd2ss xmm0, xmm0
     movsd xmm1, [rbp + 168]
     cvtsd2ss xmm1, xmm1
-    mov [rbp - 16], r10
-    mov [rbp - 24], r11
-    mov [rbp - 32], rbx
+    mov [rbp - 88], r10
+    mov [rbp - 96], r11
+    mov [rbp - 104], rbx
     call apply_optimizers_step
 
-    mov r10, [rbp - 16]
-    mov r11, [rbp - 24]
-    mov rbx, [rbp - 32]
+    mov r10, [rbp - 88]
+    mov r11, [rbp - 96]
+    mov rbx, [rbp - 104]
     mov rax, [rbp - 72]
 
     shl rax, 2
@@ -423,8 +421,6 @@ mlp_train:
 
     pop r15
     pop r14
-    pop r13
-    pop r12
     pop rsi
     pop rbx
     pop rbp
