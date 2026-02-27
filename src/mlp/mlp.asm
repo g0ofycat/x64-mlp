@@ -382,7 +382,6 @@ mlp_train:
     mov rcx, r10
     mov rdx, r11
     mov [rbp - 72], r8
-    mov r8, [rbp - 72]
     mov r9, rbx
     movsd xmm0, [rbp + 128]
     cvtsd2ss xmm0, xmm0
