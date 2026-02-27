@@ -114,12 +114,15 @@ relu_derivative:
 ; @param: rdx - Pointer to output array
 ; @param: r8 - Array length
 softmax:
+    push rbp
+    mov rbp, rsp
+
     push rbx
     push r12
     push r13
     push r14
 
-    sub rsp, 88
+    sub rsp, 96
 
     mov r12, rcx
     mov r13, rdx
@@ -154,7 +157,14 @@ softmax:
 
     movss xmm0, [r12 + r14*4]
     subss xmm0, xmm4           ; x - max
+
+    movss [rsp + 40], xmm4
+    movss [rsp + 48], xmm5
+
     call expf                  ; exp(xmm0)
+
+    movss xmm4, [rsp + 40]
+    movss xmm5, [rsp + 48]
 
     movss [r13 + r14*4], xmm0
     addss xmm5, xmm0           ; sum += exp
@@ -201,61 +211,12 @@ softmax:
 
 ; @function .done: Label when softmax is done
 .done:
-    add rsp, 88
+    add rsp, 96
 
     pop r14
     pop r13
     pop r12
     pop rbx
-
-    ret
-
-; =============== cross_entropy_loss ===============
-
-; @function cross_entropy_loss: Cross Entropy Loss Function (Unused)
-; @param: rcx - Pointer to prediction array
-; @param: rdx - Pointer to label array
-; @param: r8 - Array length
-; @return: xmm0 - Loss Value
-cross_entropy_loss:
-    push rbx
-    push r12
-    push r13
-    push r14
-
-    sub rsp, 40
-
-    mov r12, rcx
-    mov r13, rdx
-    mov rbx, r8
-
-    xorps xmm4, xmm4            ; accumulator
-    xor r14, r14                ; i = 0
-
-; @function .loop: Loop to compute Cross Entropy Loss
-.loop:
-    cmp r14, rbx
-    jge .done
-
-    movss xmm0, [r12 + r14*4]        ; prediction
-    maxss xmm0, dword [cel_epsilon]  ; clamp
-    call logf                        ; log(prediction)
-
-    mulss xmm0, [r13 + r14*4]        ; label * log(pred)
-    subss xmm4, xmm0                 ; loss -= label * log(pred)
-
-    inc r14
-    jmp .loop
-
-; @function .done: Label when cross_entropy_loss is done
-.done:
-    movss xmm0, xmm4
-
-    add rsp, 40
-
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
+    pop rbp
 
     ret

@@ -5,12 +5,10 @@ default rel
 extern relu
 extern relu_derivative
 extern softmax
-extern cross_entropy_loss
 
 ; @extern: External Libraries
 
 extern apply_dropout
-extern print_stack_offsets
 
 ; @extern: External Data
 
@@ -111,6 +109,7 @@ mlp_feed_forward:
     mov [rsp + 56], rax           ; dropout
     movsd xmm0, [rbp + 96]
     movsd [rsp + 64], xmm0        ; dropout_rate
+    mov qword [rsp + 72], 1
     call mlp_forward_layer
 
     mov r8, [rsp + 80]            ; in_neurons
@@ -149,6 +148,7 @@ mlp_feed_forward:
     mov qword [rsp + 56], 0       ; no dropout
     pxor xmm0, xmm0
     movsd [rsp + 64], xmm0
+    mov qword [rsp + 72], 0
     call mlp_forward_layer
 
     xor rbx, rbx                  ; i = 0
@@ -732,6 +732,7 @@ mlp_back_propagation:
 ; @param: [rbp+48] - Output neurons
 ; @param: [rbp+56] - Apply dropout (0 or 1)
 ; @param: [rbp+64] - Dropout rate
+; @param: [rbp+72] - Apply activation (0 or 1)
 ; @return: rax - Pointer to output tensor
 mlp_forward_layer:
     push rbp
@@ -846,12 +847,17 @@ mlp_forward_layer:
 
 ; @function .apply_activation: Apply activation function
 .apply_relu:
+    cmp qword [rbp + 88], 0
+    je .apply_dropout
+
     mov rcx, r15
     mov rax, rbx
     imul rax, r11
     mov r8, rax
     call relu
 
+; @function .check_dropout: Check and apply dropout
+.apply_dropout:
     cmp qword [rbp + 72], 0
     je .done
 
