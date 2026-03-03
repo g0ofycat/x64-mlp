@@ -5,12 +5,16 @@ extern logf
 
 ; @section: CEL Data
 section .data
+    leaky_alpha: dd 0.01
+    leaky_alpha_ps: dd 0.01, 0.01, 0.01, 0.01
+
     cel_epsilon: dd 0x358637BD      ; 1e-6 f32
 
 ; @section: Global labels
 section .text
-    global relu
-    global relu_derivative
+    global leaky_relu
+    global leaky_relu_derivative
+
     global softmax
     global cross_entropy_loss
 
@@ -18,12 +22,13 @@ section .text
 
 ; =============== relu ===============
 
-; @function relu: ReLU activation function (in-place)
+; @function leaky_relu: Leaky ReLU activation function (in-place)
 ; @param: rcx - The array to apply ReLU to
 ; @param: r8 - Array Length
-relu:
+leaky_relu:
     xor r10, r10
-    xorps xmm1, xmm1
+    movups xmm2, [leaky_alpha_ps]
+    xorps xmm3, xmm3
 
     mov r9, r8
     and r9, -4
@@ -34,7 +39,14 @@ relu:
     jge .scalar_tail
 
     movups xmm0, [rcx + r10*4]
-    maxps xmm0, xmm1
+    movaps xmm1, xmm0
+    mulps xmm1, xmm2            ; x * 0.01
+    maxps xmm0, xmm3            ; max(x, 0)
+    movaps xmm4, xmm3
+    cmpltps xmm4, xmm0
+    andps xmm0, xmm4
+    andnps xmm4, xmm1
+    orps xmm0, xmm4
     movups [rcx + r10*4], xmm0
 
     add r10, 4
@@ -46,7 +58,14 @@ relu:
     jge .done
 
     movss xmm0, [rcx + r10*4]
-    maxss xmm0, xmm1
+    movaps xmm1, xmm0
+    mulss xmm1, [leaky_alpha]   ; x * 0.01
+    maxss xmm0, xmm3            ; max(x, 0)
+    movaps xmm4, xmm3
+    cmpltss xmm4, xmm0
+    andps xmm0, xmm4
+    andnps xmm4, xmm1
+    orps xmm0, xmm4
     movss [rcx + r10*4], xmm0
 
     inc r10
@@ -58,13 +77,14 @@ relu:
 
 ; =============== relu_derivative ===============
 
-; @function relu_derivative: ReLU Derivative (in-place)
+; @function leaky_relu_derivative: Leaky ReLU Derivative (in-place)
 ; @param: rcx - Pointer to original output (forward pass)
 ; @param: rdx - Pointer to gradients (to be modified in-place)
 ; @param: r8 - Array Length
-relu_derivative:
+leaky_relu_derivative:
     xor r10, r10
     xorps xmm2, xmm2
+    movups xmm5, [leaky_alpha_ps]
 
     mov r9, r8
     and r9, -4
@@ -74,13 +94,18 @@ relu_derivative:
     cmp r10, r9
     jge .scalar_tail
 
-    movups xmm0, [rcx + r10*4]
-    movups xmm1, [rdx + r10*4]
+    movups xmm0, [rcx + r10*4]  ; activations
+    movups xmm1, [rdx + r10*4]  ; gradients
 
     movaps xmm3, xmm2
     cmpltps xmm3, xmm0
 
+    movaps xmm4, xmm5
+    mulps xmm4, xmm1
+
     andps xmm1, xmm3
+    andnps xmm3, xmm4
+    orps xmm1, xmm3
     movups [rdx + r10*4], xmm1
 
     add r10, 4
@@ -97,7 +122,11 @@ relu_derivative:
     pxor xmm3, xmm3
     cmpltss xmm3, xmm0
 
+    movaps xmm4, xmm5
+    mulss xmm4, xmm1
     andps xmm1, xmm3
+    andnps xmm3, xmm4
+    orps xmm1, xmm3
     movss [rdx + r10*4], xmm1
 
     inc r10

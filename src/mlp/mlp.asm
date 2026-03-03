@@ -2,8 +2,8 @@ default rel
 
 ; @extern: Math Functions
 
-extern relu
-extern relu_derivative
+extern leaky_relu
+extern leaky_relu_derivative
 extern softmax
 
 ; @extern: External Libraries
@@ -870,7 +870,7 @@ mlp_forward_layer:
     mov rax, rbx
     imul rax, r11
     mov r8, rax
-    call relu
+    call leaky_relu
 
 ; @function .check_apply_dropout: Check and apply dropout
 .check_apply_dropout:
@@ -945,7 +945,7 @@ mlp_backward_layer:
     mov rax, [rbp + 48]
     imul rax, [rbp + 64]
     mov r8, rax                ; batch * neurons
-    call relu_derivative
+    call leaky_relu_derivative
 
     mov rcx, r12               ; input activations
     mov rdx, [rbp + 88]        ; this delta
