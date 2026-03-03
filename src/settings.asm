@@ -29,8 +29,8 @@ section .data
 
     ; @data: MLP Training
 
-    epochs: dq 20000
-    learning_rate: dq 0.025         ; u have to manually div by batch size
+    epochs: dq 50000
+    learning_rate: dq 0.1
     enable_dropout: dq 0
     dropout_rate: dq 0.0
 
@@ -43,7 +43,7 @@ section .data
     ; @data: Optimizer Settings
 
     batch_size: dq 4
-    momentum: dq 0.9
+    momentum: dq 0.0
 
 ; @section: Training Buffers
 section .bss

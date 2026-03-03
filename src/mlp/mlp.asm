@@ -287,6 +287,32 @@ mlp_train:
     mov [rsp + 104], rax           ; deltas
     call mlp_back_propagation
 
+    mov rcx, [rbp + 88]            ; weight_grad_ptr
+    cvtsi2ss xmm0, [rbp - 40]      ; batch_size
+
+    mov r8, [rbp - 48]             ; input_neurons
+    imul r8, [rbp + 48]            ; * hidden_neurons (first layer)
+
+    mov rax, [rbp + 48]            ; hidden_neurons
+    imul rax, [rbp + 48]           ; hidden * hidden
+    mov r9, [rbp + 56]             ; num_hidden
+    dec r9
+    imul rax, r9                   ; * (num_hidden - 1) hidden layers
+    add r8, rax
+
+    mov rax, [rbp + 48]            ; hidden_neurons
+    imul rax, [rbp + 64]           ; * output_neurons
+    add r8, rax
+    call scale_gradients
+
+    mov rcx, [rbp + 96]            ; bias_grad_ptr
+    cvtsi2ss xmm0, [rbp - 40]      ; batch_size
+
+    mov r8, [rbp + 56]             ; num_hidden
+    imul r8, [rbp + 48]            ; * hidden_neurons
+    add r8, [rbp + 64]             ; + output_neurons
+    call scale_gradients
+
     xor rsi, rsi                   ; layer = 0
 
     mov r10, [rbp + 72]            ; weight_ptr
@@ -456,7 +482,7 @@ mlp_back_propagation:
     push r14
     push r15
 
-    sub rsp, 128
+    sub rsp, 136
 
     mov r12, r8                     ; batch_size
     mov r13, r9                     ; input_neurons
@@ -464,50 +490,40 @@ mlp_back_propagation:
     mov [rbp - 16], rdx             ; target tensor
     mov [rbp - 64], r13             ; input neurons
 
-    mov rcx, [rbp + 96]
-
-    mov rax, r13
-    imul rax, [rbp + 56]
+    mov rax, [rbp - 64]             ; input_neurons
+    imul rax, [rbp + 56]            ; * hidden_neurons
     mov r8, rax
 
-    mov rax, [rbp + 64]
+    mov r10, [rbp + 56]             ; hidden_neurons
+    imul r10, [rbp + 56]            ; hidden * hidden
+    mov rax, [rbp + 64]             ; num_hidden
     dec rax
+    imul r10, rax
+    add r8, r10
 
-    mov rbx, rax
-    mov rax, [rbp + 56]
-
-    imul rax, [rbp + 56]
-
-    imul rax, rbx
+    mov rax, [rbp + 56]             ; hidden_neurons
+    imul rax, [rbp + 72]            ; * output_neurons
     add r8, rax
 
-    mov rax, [rbp + 56]
-    imul rax, [rbp + 72]
-    add r8, rax
+    mov rcx, [rbp + 96]             ; weight_grad_ptr
     call zero_gradients
 
-    mov rcx, [rbp + 104]
-    mov rax, [rbp + 64]
-    imul rax, [rbp + 56]
-    add rax, [rbp + 72]
+    mov rax, [rbp + 64]             ; num_hidden
+    imul rax, [rbp + 56]            ; * hidden_neurons
     mov r8, rax
+    add r8, [rbp + 72]              ; + output_neurons
+
+    mov rcx, [rbp + 104]            ; bias_grad_ptr
     call zero_gradients
 
     mov rcx, [rbp + 48]             ; predictions
     mov rdx, [rbp - 16]             ; target tensor
-
-    mov rax, [rbp + 64]
-    imul rax, [rbp + 56]
-    imul rax, r12
-    mov r8, [rbp + 120]
-    lea r8, [r8 + rax*4]
-
-    mov rax, r12
-    imul rax, [rbp + 72]
-    mov r9, rax
+    mov r8, [rbp + 120]             ; delta buffer
+    mov r9, r12
+    imul r9, [rbp + 72]             ; batch * output_neurons
     call compute_output_error
 
-    mov rsi, [rbp + 64]             ; layer_idx = num_hidden (output layer)
+    mov rsi, [rbp + 64]             ; num_hidden (layer_idx)
     mov r13, [rbp + 80]             ; weight_ptr
     mov r14, [rbp + 88]             ; bias_ptr
     mov r15, [rbp + 96]             ; weight_grad_ptr
@@ -516,8 +532,8 @@ mlp_back_propagation:
     lea r13, [r13 + rax*4]
     lea r15, [r15 + rax*4]
 
-    mov rax, [rbp + 64]
-    imul rax, [rbp + 56]
+    mov rax, [rbp + 64]             ; num_hidden
+    imul rax, [rbp + 56]            ; * hidden_neurons
     lea r14, [r14 + rax*4]
     mov [rbp - 24], r14
 
@@ -678,7 +694,7 @@ mlp_back_propagation:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 128
+    add rsp, 136
 
     pop r15
     pop r14
@@ -746,7 +762,7 @@ mlp_forward_layer:
     push r14
     push r15
 
-    sub rsp, 96
+    sub rsp, 88
 
     mov r12, rcx
     mov r13, rdx
@@ -848,7 +864,7 @@ mlp_forward_layer:
 ; @function .apply_activation: Apply activation function
 .apply_relu:
     cmp qword [rbp + 88], 0
-    je .apply_dropout
+    je .check_apply_dropout
 
     mov rcx, r15
     mov rax, rbx
@@ -856,8 +872,8 @@ mlp_forward_layer:
     mov r8, rax
     call relu
 
-; @function .check_dropout: Check and apply dropout
-.apply_dropout:
+; @function .check_apply_dropout: Check and apply dropout
+.check_apply_dropout:
     cmp qword [rbp + 72], 0
     je .done
 
@@ -874,7 +890,7 @@ mlp_forward_layer:
 .done:
     mov rax, r15
 
-    add rsp, 96
+    add rsp, 88
 
     pop r15
     pop r14
@@ -1155,7 +1171,7 @@ compute_hidden_error:
     push r12
     push r13
 
-    sub rsp, 32
+    sub rsp, 40
 
     mov r10, [rbp + 48]
     mov r11, [rbp + 56]
@@ -1236,7 +1252,7 @@ compute_hidden_error:
 
 ; @function .done: Label when compute_hidden_error is done
 .done:
-    add rsp, 32
+    add rsp, 40
 
     pop r13
     pop r12
@@ -1280,6 +1296,48 @@ zero_gradients:
     jmp .scalar_tail
 
 ; @function .done: Label when zero_gradients is done
+.done:
+    ret
+
+; =============== scale_gradients ===============
+
+; @function scale_gradients: Divide all gradients by batch size (in-place)
+; @param: rcx - Pointer to gradient buffer
+; @param: r8  - Total number of floats
+; @param: xmm0 - Float scalar divisor
+scale_gradients:
+    xor r10, r10
+
+    shufps xmm0, xmm0, 0
+
+    mov rax, r8
+    and rax, -4
+
+; @function .simd_loop: Divide 4 gradients at a time
+.simd_loop:
+    cmp r10, rax
+    jge .scalar_tail
+
+    movups xmm1, [rcx + r10*4]
+    divps xmm1, xmm0
+    movups [rcx + r10*4], xmm1
+
+    add r10, 4
+    jmp .simd_loop
+
+; @function .scalar_tail: Divide remaining gradients
+.scalar_tail:
+    cmp r10, r8
+    jge .done
+
+    movss xmm1, [rcx + r10*4]
+    divss xmm1, xmm0
+    movss [rcx + r10*4], xmm1
+
+    inc r10
+    jmp .scalar_tail
+
+; @function .done: Label when scale_gradients is done
 .done:
     ret
 

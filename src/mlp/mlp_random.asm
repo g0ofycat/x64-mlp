@@ -4,7 +4,7 @@ default rel
 
 extern rand
 extern srand
-extern time
+extern GetTickCount
 extern malloc
 
 ; @section: Data for apply_dropout
@@ -35,7 +35,7 @@ init_random:
 
     xor rcx, rcx
 
-    call time
+    call GetTickCount
 
     mov rcx, rax
     call srand

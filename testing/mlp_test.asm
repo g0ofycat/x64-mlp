@@ -117,8 +117,7 @@ main:
     mov r8, r15
     lea r9, [activation_buffer]
 
-    mov rax, [batch_size]
-    mov [rsp + 32], rax
+    mov qword [rsp + 32], 1
     mov rax, [input_neurons]
     mov [rsp + 40], rax
     mov rax, [hidden_neurons]
