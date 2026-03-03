@@ -510,15 +510,13 @@ mlp_back_propagation:
 
     mov rax, [rbp + 64]             ; num_hidden
     imul rax, [rbp + 56]            ; * hidden_neurons
-    mov r8, rax
-    add r8, [rbp + 72]              ; + output_neurons
+    imul rax, r12                   ; * batch_size
 
-    mov rcx, [rbp + 104]            ; bias_grad_ptr
-    call zero_gradients
+    mov r8, [rbp + 120]
+    lea r8, [r8 + rax*4]
 
     mov rcx, [rbp + 48]             ; predictions
-    mov rdx, [rbp - 16]             ; target tensor
-    mov r8, [rbp + 120]             ; delta buffer
+    mov rdx, [rbp - 16]             ; targets
     mov r9, r12
     imul r9, [rbp + 72]             ; batch * output_neurons
     call compute_output_error
@@ -1410,18 +1408,19 @@ apply_optimizers_step:
     cmp r10, rax
     jge .scalar_tail
 
-    movups xmm2, [r9 + r10*4]           ; vel[i..i+3]
+    movups xmm2, [r9 + r10*4]
     mulps xmm2, xmm1                    ; vel * momentum
-    movups xmm3, [rdx + r10*4]          ; grad[i..i+3]
-    movaps xmm4, xmm3                   ; copy for clipping
-    minps xmm4, [clip_grad_max_ps]      ; clip high
-    maxps xmm4, [clip_grad_min_ps]      ; clip low
-    mulps xmm4, xmm0                    ; clipped_grad * lr
-    subps xmm2, xmm4                    ; vel = vel*m - lr*grad
-    movups [r9 + r10*4], xmm2           ; store vel
-    movups xmm3, [rcx + r10*4]          ; weight[i..i+3]
-    addps xmm3, xmm2                    ; w += vel
-    movups [rcx + r10*4], xmm3          ; store weight 
+    movups xmm3, [rdx + r10*4]
+    minps xmm3, [clip_grad_max_ps]      ; clip grad high
+    maxps xmm3, [clip_grad_min_ps]      ; clip grad low
+    mulps xmm3, xmm0                    ; clipped_grad * lr
+    subps xmm2, xmm3                    ; vel = vel*m - lr*grad
+    minps xmm2, [clip_grad_max_ps]      ; clip vel high
+    maxps xmm2, [clip_grad_min_ps]      ; clip vel low
+    movups [r9 + r10*4], xmm2
+    movups xmm3, [rcx + r10*4]
+    addps xmm3, xmm2
+    movups [rcx + r10*4], xmm3
 
     add r10, 4
     jmp .simd_loop
@@ -1431,20 +1430,21 @@ apply_optimizers_step:
     cmp r10, r8
     jge .done
 
-    movss xmm2, [r9 + r10*4]            ; vel[i]
+    movss xmm2, [r9 + r10*4]
     mulss xmm2, xmm1                    ; vel * momentum
-    movss xmm3, [rdx + r10*4]           ; grad[i]
-    minss xmm3, [clip_grad_max]         ; clip high
-    maxss xmm3, [clip_grad_min]         ; clip low
+    movss xmm3, [rdx + r10*4]
+    minss xmm3, [clip_grad_max]         ; clip grad high
+    maxss xmm3, [clip_grad_min]         ; clip grad low
     mulss xmm3, xmm0                    ; clipped_grad * lr
     subss xmm2, xmm3                    ; vel = vel*m - lr*grad
-    movss [r9 + r10*4], xmm2            ; store vel
-    movss xmm3, [rcx + r10*4]           ; weight[i]
-    addss xmm3, xmm2                    ; w += vel
-    movss [rcx + r10*4], xmm3           ; store weight
+    minss xmm2, [clip_grad_max]         ; clip vel high
+    maxss xmm2, [clip_grad_min]         ; clip vel low
+    movss [r9 + r10*4], xmm2
+    movss xmm3, [rcx + r10*4]
+    addss xmm3, xmm2
+    movss [rcx + r10*4], xmm3
 
     inc r10
-
     jmp .scalar_tail
 
 ; @function .done: Label when apply_optimizers_step is done
