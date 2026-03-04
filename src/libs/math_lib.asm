@@ -151,7 +151,7 @@ softmax:
     push r13
     push r14
 
-    sub rsp, 96
+    sub rsp, 80
 
     mov r12, rcx
     mov r13, rdx
@@ -240,7 +240,7 @@ softmax:
 
 ; @function .done: Label when softmax is done
 .done:
-    add rsp, 96
+    add rsp, 80
 
     pop r14
     pop r13

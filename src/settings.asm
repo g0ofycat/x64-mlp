@@ -43,7 +43,7 @@ section .data
     ; @data: Optimizer Settings
 
     batch_size: dq 4
-    momentum: dq 0.9
+    momentum: dq 0.0
 
 ; @section: Training Buffers
 section .bss

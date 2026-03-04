@@ -57,8 +57,6 @@ main:
     push r14
     push r15
 
-    sub rsp, 176
-
     call init_random
 
     mov rcx, [input_neurons]
@@ -155,8 +153,6 @@ main:
     jmp .print_loop 
 
 .done:
-    add rsp, 176
-
     pop r15
     pop r14
     pop r13

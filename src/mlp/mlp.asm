@@ -9,8 +9,6 @@ extern softmax
 ; @extern: External Libraries
 
 extern apply_dropout
-extern print_stack_offsets
-extern print_f32_array
 
 ; @extern: External Data
 
@@ -221,7 +219,7 @@ mlp_train:
     push r14
     push r15
 
-    sub rsp, 160
+    sub rsp, 168
 
     mov r14, rcx                   ; input tensor
     mov r15, rdx                   ; target tensor
@@ -445,7 +443,7 @@ mlp_train:
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
-    add rsp, 160
+    add rsp, 168
 
     pop r15
     pop r14
@@ -985,7 +983,7 @@ mlp_backward_layer:
 ; @param: r9 - Batch Size
 ; @param: [rbp+32] - Input neurons (columns in X)
 ; @param: [rbp+40] - Output neurons (columns in Delta)
-compute_weight_gradients:   ; 3 -> 2. 1 print???
+compute_weight_gradients:
     push rbp
     mov rbp, rsp
 
