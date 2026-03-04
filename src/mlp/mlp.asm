@@ -55,7 +55,7 @@ mlp_feed_forward:
     push r14
     push r15
 
-    sub rsp, 112
+    sub rsp, 120
 
     mov r12, rcx                  ; input pointer
     mov r13, rdx                  ; weight pointer
@@ -173,7 +173,7 @@ mlp_feed_forward:
 .done:
     mov rax, [rsp + 96]
 
-    add rsp, 112
+    add rsp, 120
 
     pop r15
     pop r14
@@ -510,6 +510,13 @@ mlp_back_propagation:
 
     mov rax, [rbp + 64]             ; num_hidden
     imul rax, [rbp + 56]            ; * hidden_neurons
+    mov r8, rax
+    add r8, [rbp + 72]              ; + output_neurons
+    mov rcx, [rbp + 104]            ; bias_grad_ptr
+    call zero_gradients
+
+    mov rax, [rbp + 64]             ; num_hidden
+    imul rax, [rbp + 56]            ; * hidden_neurons
     imul rax, r12                   ; * batch_size
 
     mov r8, [rbp + 120]
@@ -631,8 +638,10 @@ mlp_back_propagation:
     lea r10, [r10 + rax*4]
     mov [rbp - 48], r10
 
+    mov [rbp - 120], r13
+
     mov r8, rdx
-    mov r9, r13
+    mov r9, [rbp - 120]
     mov rdx, r10
 
     mov [rsp + 32], r12             ; batch_size
@@ -659,7 +668,7 @@ mlp_back_propagation:
 
 ; @function .output_layer_grads: Handle output layer gradients
 .output_layer_grads:
-    mov [rbp - 56], rdx
+    mov [rbp - 128], rdx
 
     mov r8, r15                     ; weight_grads
     mov r9, r12                     ; batch_size
@@ -670,7 +679,7 @@ mlp_back_propagation:
     mov [rsp + 40], rax             ; out_neurons
     call compute_weight_gradients
 
-    mov rcx, [rbp - 56]             ; current delta
+    mov rcx, [rbp - 128]             ; current delta
     mov rdx, [rbp - 24]             ; bias_grads
     mov r8, r12
     mov r9, [rbp - 40]              ; out_neurons
@@ -684,7 +693,7 @@ mlp_back_propagation:
     sub r13, rax
     sub r15, rax
 
-    mov rax, [rbp - 32]
+    mov rax, [rbp - 40]
     shl rax, 2
     sub r14, rax
     sub [rbp - 24], rax
