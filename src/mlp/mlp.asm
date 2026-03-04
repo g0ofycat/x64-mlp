@@ -9,6 +9,8 @@ extern softmax
 ; @extern: External Libraries
 
 extern apply_dropout
+extern print_stack_offsets
+extern print_f32_array
 
 ; @extern: External Data
 
@@ -35,7 +37,7 @@ section .text
 ; @param: rcx - Input tensor pointer
 ; @param: rdx - Weight tensor pointer
 ; @param: r8 - Bias tensor pointer
-; @param: r9 - Output tensor pointer (pre-allocated)
+; @param: r9 - Output tensor pointer
 ; @param: [rbp+32] - Input rows (batch size)
 ; @param: [rbp+40] - Input columns (input neurons)
 ; @param: [rbp+48] - Amount of hidden neurons per layer
@@ -199,8 +201,8 @@ mlp_feed_forward:
 ; @param: [rbp+64] - Bias tensor pointer
 ; @param: [rbp+72] - Weight gradient buffer
 ; @param: [rbp+80] - Bias gradient buffer
-; @param: [rbp+88] - Activation buffer (flat)
-; @param: [rbp+96] - Delta buffer (flat)
+; @param: [rbp+88] - Activation buffer
+; @param: [rbp+96] - Delta buffer
 ; @param: [rbp+104] - Amount of epochs
 ; @param: [rbp+112] - Learning rate
 ; @param: [rbp+120] - Apply dropout (0 or 1)
@@ -219,7 +221,7 @@ mlp_train:
     push r14
     push r15
 
-    sub rsp, 176
+    sub rsp, 160
 
     mov r14, rcx                   ; input tensor
     mov r15, rdx                   ; target tensor
@@ -443,7 +445,7 @@ mlp_train:
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
-    add rsp, 176
+    add rsp, 160
 
     pop r15
     pop r14
@@ -468,8 +470,8 @@ mlp_train:
 ; @param: [rbp+72] - Bias tensor pointer
 ; @param: [rbp+80] - Weight gradients
 ; @param: [rbp+88] - Bias gradients
-; @param: [rbp+96] - Activations (flat buffer)
-; @param: [rbp+104] - Deltas (flat buffer)
+; @param: [rbp+96] - Activation buffer
+; @param: [rbp+104] - Delta buffer
 mlp_back_propagation:
     push rbp
     mov rbp, rsp
@@ -659,6 +661,8 @@ mlp_back_propagation:
 
 ; @function .output_layer_grads: Handle output layer gradients
 .output_layer_grads:
+    mov [rbp - 56], rdx
+
     mov r8, r15                     ; weight_grads
     mov r9, r12                     ; batch_size
 
@@ -668,7 +672,7 @@ mlp_back_propagation:
     mov [rsp + 40], rax             ; out_neurons
     call compute_weight_gradients
 
-    mov rcx, rdx                    ; current delta
+    mov rcx, [rbp - 56]             ; current delta
     mov rdx, [rbp - 24]             ; bias_grads
     mov r8, r12
     mov r9, [rbp - 40]              ; out_neurons
@@ -740,7 +744,7 @@ mlp_back_propagation:
 ; @param: rcx - Input tensor pointer
 ; @param: rdx - Weight tensor pointer
 ; @param: r8 - Bias tensor pointer
-; @param: r9 - Output tensor pointer (pre-allocated)
+; @param: r9 - Output tensor pointer
 ; @param: [rbp+32] - Batch size
 ; @param: [rbp+40] - Input neurons
 ; @param: [rbp+48] - Output neurons
@@ -909,12 +913,12 @@ mlp_forward_layer:
 ; @param: r8 - Delta from next layer
 ; @param: r9 - Weights of next layer
 ; @param: [rbp+32] - Batch size
-; @param: [rbp+40] - Input neurons (this layer)
-; @param: [rbp+48] - Output neurons (next layer)
+; @param: [rbp+40] - Input neurons
+; @param: [rbp+48] - Output neurons
 ; @param: [rbp+56] - Weight gradient buffer (this layer)
 ; @param: [rbp+64] - Bias gradient buffer (this layer)
-; @param: [rbp+72] - Delta buffer (this layer, OUTPUT)
-; @return: rax - Pointer to this layer's delta
+; @param: [rbp+72] - Delta buffer (this layer)
+; @return: rax - Pointer to this layers delta
 mlp_backward_layer:
     push rbp
     mov rbp, rsp
@@ -981,7 +985,7 @@ mlp_backward_layer:
 ; @param: r9 - Batch Size
 ; @param: [rbp+32] - Input neurons (columns in X)
 ; @param: [rbp+40] - Output neurons (columns in Delta)
-compute_weight_gradients:
+compute_weight_gradients:   ; 3 -> 2. 1 print???
     push rbp
     mov rbp, rsp
 
@@ -993,7 +997,7 @@ compute_weight_gradients:
     push r14
     push r15
 
-    sub rsp, 80
+    sub rsp, 72
 
     mov r12, rcx           ; activations
     mov r13, rdx           ; delta
@@ -1077,7 +1081,7 @@ compute_weight_gradients:
 
 ; @function .done: Label when compute_weight_gradients is done
 .done:
-    add rsp, 80
+    add rsp, 72
 
     pop r15
     pop r14
@@ -1092,19 +1096,16 @@ compute_weight_gradients:
 
 ; =============== compute_bias_gradients ===============
 
-; @function compute_bias_gradients: Compute bias gradients by summing deltas across batch
+; @function compute_bias_gradients: Compute bias gradients by summing deltas across batch (in-place)
 ; @param: rcx - Pointer to delta buffer
 ; @param: rdx - Pointer to bias gradient buffer
 ; @param: r8 - Batch size
 ; @param: r9 - Output neurons
 compute_bias_gradients:
-    push rbp
-    mov rbp, rsp
-
     push rbx
     push rsi
 
-    sub rsp, 40
+    sub rsp, 8
 
     xor rbx, rbx           ; j = 0 (output neuron loop)
 
@@ -1142,11 +1143,10 @@ compute_bias_gradients:
 
 ; @function .done: Label when compute_bias_gradients is done
 .done:
-    add rsp, 40
+    add rsp, 8
 
     pop rsi
     pop rbx
-    pop rbp
 
     ret
 
@@ -1169,7 +1169,7 @@ compute_hidden_error:
     push r12
     push r13
 
-    sub rsp, 40
+    sub rsp, 64
 
     mov r10, [rbp + 48]
     mov r11, [rbp + 56]
@@ -1250,7 +1250,7 @@ compute_hidden_error:
 
 ; @function .done: Label when compute_hidden_error is done
 .done:
-    add rsp, 40
+    add rsp, 64
 
     pop r13
     pop r12
@@ -1265,7 +1265,7 @@ compute_hidden_error:
 
 ; @function zero_gradients: Zero gradients (in-place)
 ; @param: rcx - Pointer to gradient buffer (grad_base_ptr)
-; @param: r8  - Total number of floats to zero
+; @param: r8 - Total number of floats to zero
 zero_gradients:
     xorps xmm0, xmm0
     xor r10, r10
@@ -1301,7 +1301,7 @@ zero_gradients:
 
 ; @function scale_gradients: Divide all gradients by batch size (in-place)
 ; @param: rcx - Pointer to gradient buffer
-; @param: r8  - Total number of floats
+; @param: r8 - Total number of floats
 ; @param: xmm0 - Float scalar divisor
 scale_gradients:
     xor r10, r10
@@ -1344,8 +1344,8 @@ scale_gradients:
 ; @function compute_output_error: SIMD "Prediction - Target" (4 SIMD) (in-place)
 ; @param: rcx - Pointer to Final layer activations (Predictions)
 ; @param: rdx - Pointer to Target tensor (Labels)
-; @param: r8  - Pointer to Destination (First Delta Buffer)
-; @param: r9  - Total number of floats (Batch * Output_Neurons)
+; @param: r8 - Pointer to Destination (First Delta Buffer)
+; @param: r9 - Total number of floats (Batch * Output_Neurons)
 compute_output_error:
     xor r10, r10
 
@@ -1393,8 +1393,7 @@ compute_output_error:
 ; @param: xmm0 - Learning rate
 ; @param: xmm1 - Momentum
 apply_optimizers_step:
-    push rbp
-    mov rbp, rsp
+    sub rsp, 8
 
     shufps xmm0, xmm0, 0
     shufps xmm1, xmm1, 0
@@ -1449,6 +1448,6 @@ apply_optimizers_step:
 
 ; @function .done: Label when apply_optimizers_step is done
 .done:
-    pop rbp
+    add rsp, 8
 
     ret
