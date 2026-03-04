@@ -55,7 +55,7 @@ mlp_feed_forward:
     push r14
     push r15
 
-    sub rsp, 96
+    sub rsp, 112
 
     mov r12, rcx                  ; input pointer
     mov r13, rdx                  ; weight pointer
@@ -173,7 +173,7 @@ mlp_feed_forward:
 .done:
     mov rax, [rsp + 96]
 
-    add rsp, 96
+    add rsp, 112
 
     pop r15
     pop r14
@@ -219,7 +219,7 @@ mlp_train:
     push r14
     push r15
 
-    sub rsp, 128
+    sub rsp, 160
 
     mov r14, rcx                   ; input tensor
     mov r15, rdx                   ; target tensor
@@ -443,7 +443,7 @@ mlp_train:
     mov rax, [rbp + 72]
     mov rdx, [rbp + 80]
 
-    add rsp, 128
+    add rsp, 160
 
     pop r15
     pop r14
@@ -482,7 +482,7 @@ mlp_back_propagation:
     push r14
     push r15
 
-    sub rsp, 56
+    sub rsp, 136
 
     mov r12, r8                     ; batch_size
     mov r13, r9                     ; input_neurons
@@ -694,7 +694,7 @@ mlp_back_propagation:
 
 ; @function .done: Label when mlp_back_propagation is done
 .done:
-    add rsp, 56
+    add rsp, 136
 
     pop r15
     pop r14
@@ -761,6 +761,8 @@ mlp_forward_layer:
     push r13
     push r14
     push r15
+
+    sub rsp, 88
 
     mov r12, rcx
     mov r13, rdx
@@ -888,6 +890,8 @@ mlp_forward_layer:
 .done:
     mov rax, r15
 
+    add rsp, 88
+
     pop r15
     pop r14
     pop r13
@@ -919,6 +923,8 @@ mlp_backward_layer:
 
     push r12
     push r13
+
+    sub rsp, 56
 
     mov r12, rcx               ; input activations
     mov r13, rdx               ; current activations
@@ -960,6 +966,8 @@ mlp_backward_layer:
 
     mov rax, [rbp + 88]
 
+    add rsp, 56
+
     pop r13
     pop r12
     pop rbp
@@ -975,7 +983,7 @@ mlp_backward_layer:
 ; @param: r9 - Batch Size
 ; @param: [rbp+32] - Input neurons (columns in X)
 ; @param: [rbp+40] - Output neurons (columns in Delta)
-compute_weight_gradients:
+compute_weight_gradients:   ; 3 -> 2. 1 print???
     push rbp
     mov rbp, rsp
 
@@ -987,7 +995,7 @@ compute_weight_gradients:
     push r14
     push r15
 
-    sub rsp, 8
+    sub rsp, 72
 
     mov r12, rcx           ; activations
     mov r13, rdx           ; delta
@@ -1071,7 +1079,7 @@ compute_weight_gradients:
 
 ; @function .done: Label when compute_weight_gradients is done
 .done:
-    add rsp, 8
+    add rsp, 72
 
     pop r15
     pop r14
@@ -1159,7 +1167,7 @@ compute_hidden_error:
     push r12
     push r13
 
-    sub rsp, 8
+    sub rsp, 64
 
     mov r10, [rbp + 48]
     mov r11, [rbp + 56]
@@ -1240,7 +1248,7 @@ compute_hidden_error:
 
 ; @function .done: Label when compute_hidden_error is done
 .done:
-    add rsp, 8
+    add rsp, 64
 
     pop r13
     pop r12

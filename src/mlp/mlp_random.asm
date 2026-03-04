@@ -31,7 +31,7 @@ section .text
 
 ; @function init_random: Init random seed
 init_random:
-    sub rsp, 8
+    sub rsp, 40
 
     xor rcx, rcx
 
@@ -40,7 +40,7 @@ init_random:
     mov rcx, rax
     call srand
 
-    add rsp, 8
+    add rsp, 40
 
     ret
 
@@ -54,6 +54,8 @@ apply_dropout:
     push rbx
     push r12
     push r13
+
+    sub rsp, 64
 
     mov r12, rcx        ; array pointer
     mov r13, r8         ; size
@@ -102,6 +104,8 @@ apply_dropout:
 
 ; @function .done: Label when apply_dropout is done
 .done:
+    add rsp, 64
+
     pop r13
     pop r12
     pop rbx
@@ -127,6 +131,8 @@ init_params:
     push r15
     push rdi
     push rsi
+
+    sub rsp, 96
 
     mov [rbp - 8], rcx
     mov [rbp - 16], rdx
@@ -241,6 +247,8 @@ init_params:
     mov rax, r14
     mov rdx, r15
 
+    add rsp, 96
+
     pop rsi
     pop rdi
     pop r15
@@ -262,6 +270,8 @@ he_fill:
     push r12
     push r13
     push r14
+
+    sub rsp, 56
 
     mov rbx, rcx
     mov r12, rdx
@@ -297,6 +307,8 @@ he_fill:
 
 ; @function .f_done: Cleanup and return from fill
 .f_done:
+    add rsp, 56
+
     pop r14
     pop r13
     pop r12
