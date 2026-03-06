@@ -9,6 +9,8 @@ extern softmax
 ; @extern: External Libraries
 
 extern apply_dropout
+extern print_stack_offsets
+extern print_f32_array
 
 ; @extern: External Data
 
@@ -542,6 +544,10 @@ mlp_back_propagation:
     lea r14, [r14 + rax*4]
     mov [rbp - 24], r14
 
+    mov r10, [rbp + 104]            ; bias_grad_ptr base
+    lea r10, [r10 + rax*4]          ; advance to output section
+    mov [rbp - 72], r10             ; current bias_grad_ptr
+
 ; @function .bp_loop: Backpropagation loop
 .bp_loop:
     test rsi, rsi
@@ -638,9 +644,12 @@ mlp_back_propagation:
     lea r10, [r10 + rax*4]
     mov [rbp - 48], r10
 
-    mov [rbp - 120], r13
-
     mov r8, rdx
+    mov rax, [rbp + 64]             ; num_hidden
+    imul rax, [rbp + 56]            ; * hidden_neurons
+    imul rax, r12                   ; * batch_size
+    mov r8, [rbp + 120]
+    lea r8, [r8 + rax*4]            ; output delta
     mov r9, [rbp - 120]
     mov rdx, r10
 
@@ -651,7 +660,7 @@ mlp_back_propagation:
     mov [rsp + 48], rax             ; output_neurons
 
     mov [rsp + 56], r15             ; weight_grads
-    mov rax, [rbp - 24]
+    mov rax, [rbp - 72]
     mov [rsp + 64], rax             ; bias_grads
 
     mov rax, rsi
@@ -679,14 +688,15 @@ mlp_back_propagation:
     mov [rsp + 40], rax             ; out_neurons
     call compute_weight_gradients
 
-    mov rcx, [rbp - 128]             ; current delta
-    mov rdx, [rbp - 24]             ; bias_grads
+    mov rcx, [rbp - 128]            ; current delta
+    mov rdx, [rbp - 72]             ; bias_grads
     mov r8, r12
     mov r9, [rbp - 40]              ; out_neurons
     call compute_bias_gradients
 
 ; @function .bp_next_layer: Update weight / bias pointers and move to previous layer
 .bp_next_layer:
+    mov [rbp - 120], r13
     mov rax, [rbp - 32]
     imul rax, [rbp - 40]
     shl rax, 2
@@ -697,6 +707,7 @@ mlp_back_propagation:
     shl rax, 2
     sub r14, rax
     sub [rbp - 24], rax
+    sub [rbp - 72], rax
 
     dec rsi
     jmp .bp_loop
@@ -933,7 +944,7 @@ mlp_backward_layer:
     push r12
     push r13
 
-    sub rsp, 56
+    sub rsp, 48
 
     mov r12, rcx               ; input activations
     mov r13, rdx               ; current activations
@@ -975,7 +986,7 @@ mlp_backward_layer:
 
     mov rax, [rbp + 88]
 
-    add rsp, 56
+    add rsp, 48
 
     pop r13
     pop r12
@@ -1176,7 +1187,7 @@ compute_hidden_error:
     push r12
     push r13
 
-    sub rsp, 64
+    sub rsp, 72
 
     mov r10, [rbp + 48]
     mov r11, [rbp + 56]
@@ -1192,15 +1203,15 @@ compute_hidden_error:
 
 ; @function .in_loop: Loop to calculate current batch hidden error
 .in_loop:
-    cmp rbx, r10
+    cmp rbx, r11
     jge .next_batch
 
     mov rax, rsi
-    imul rax, r11
+    imul rax, r10
     lea r12, [rcx + rax*4]
 
     mov rax, rbx
-    imul rax, r11
+    imul rax, r10
     lea r13, [rdx + rax*4]
 
     xorps xmm0, xmm0
@@ -1216,7 +1227,7 @@ compute_hidden_error:
 
 ; @function .out_loop_simd: SIMD Dot Product Calculation (4 SIMD)
 .out_loop_simd:
-    mov rax, r11
+    mov rax, r10
     sub rax, rdi
 
     cmp rax, 4
@@ -1232,7 +1243,7 @@ compute_hidden_error:
 
 ; @function .out_loop_scalar: Calculate output loop scalar
 .out_loop_scalar:
-    cmp rdi, r11
+    cmp rdi, r10
     jge .horizontal_add
 
     movss xmm1, [r12 + rdi*4]
@@ -1248,7 +1259,7 @@ compute_hidden_error:
     haddps xmm0, xmm0
 
     mov rax, rsi
-    imul rax, r10
+    imul rax, r11
     add rax, rbx
     movss [r8 + rax*4], xmm0
 
@@ -1257,7 +1268,7 @@ compute_hidden_error:
 
 ; @function .done: Label when compute_hidden_error is done
 .done:
-    add rsp, 64
+    add rsp, 72
 
     pop r13
     pop r12
