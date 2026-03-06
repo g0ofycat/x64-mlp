@@ -707,6 +707,9 @@ mlp_back_propagation:
     shl rax, 2
     sub r14, rax
     sub [rbp - 24], rax
+
+    mov rax, [rbp - 32]
+    shl rax, 2
     sub [rbp - 72], rax
 
     dec rsi
