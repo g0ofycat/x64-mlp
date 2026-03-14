@@ -1,4 +1,4 @@
-# x64-mlp
+# x64-mlp (DISCONTINUED)
 
 Classification Multi-Layered Perceptron w/ SGD implementation and dropout made in **pure x64**
 
